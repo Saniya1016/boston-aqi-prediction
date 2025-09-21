@@ -5,7 +5,7 @@
 * Anna LaPrade - U14515609 - alaprade@bu.edu
 * Saniya Sekhon - U68321677 - saneya52@bu.edu 
 * Sorathorn Thongpitukthavorn - U01165313 - plum@bu.edu
-* name - UID - alemuk@bu.edu
+* Aline Mukadi - U43727980 - alemuk@bu.edu
 </br></br>
 
 ---
