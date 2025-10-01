@@ -12,10 +12,13 @@
 
 ### Description
 
+Air quality plays a critical role in public health, especially for vulnerable groups such as children, the elderly, and people with asthma. The goal of this project is to build a machine learning pipeline that predicts the daily air quality category in Boston (e.g., Good, Moderate, Unhealthy) using weather and allergen (e.g., tree, grass, weed pollen) data. The project will cover the full data science lifecycle, including data collection, cleaning, feature extraction, visualization, and model training.
 
-Air quality plays a critical role in public health, especially for vulnerable groups such as children, the elderly, and people with asthma. The goal of this project is to build a machine learning pipeline that predicts the daily air quality category in Boston (e.g., Good, Moderate, Unhealthy) using weather and allergen ((e.g. tree, grass, weed pollen) data. The project will cover the full data science lifecycle, including data collection, cleaning, feature extraction, visualization, and model training.
+Our approach has two components:
+1. Predicting AQI and allergen levels for a given day of the year to capture broad seasonal patterns.
+2. Incorporating weather data from the previous three days to improve short-term forecasts.
 
-Our approach has two components: (1) predicting AQI and allergen levels for a given day of the year to capture broad seasonal patterns, and (2) incorporating weather data from the previous three days to improve short-term forecasts. Since AQI and pollen are influenced both by cyclical seasonal trends and immediate weather conditions, this dual approach allows us to model long-term patterns while also accounting for short-term variability.
+Since AQI and pollen are influenced both by cyclical seasonal trends and immediate weather conditions, this dual approach allows us to model long-term patterns while also accounting for short-term variability.
 </br></br>
 
 ---
@@ -24,9 +27,9 @@ Our approach has two components: (1) predicting AQI and allergen levels for a gi
 ### Clear Goals
 
 
-* Successfully predict the daily pollen count for various types (e.g., tree, grass, weed) and the overall Air Quality Index (AQI).
-* Demonstrate a quantifiable relationship between specific weather variables and allergen/air quality levels.
-* Create data visualizations that show global trends, seasonal cycles, and the intensity of allergens over time.
+* Predict the daily pollen count (tree, grass, weed) and AQI with a mean absolute error (MAE) of less than 10% of the observed range, or achieve an R² score of at least 0.75 on the test set.
+* Demonstrate a statistically significant relationship (p < 0.05) between specific weather variables and allergen/air quality levels.
+* Develop visualizations that highlight trends, seasonal cycles, and allergen intensity for public health stakeholders.
 </br></br>
 
 ---
@@ -37,59 +40,66 @@ Our approach has two components: (1) predicting AQI and allergen levels for a gi
 
 The project will collect a comprehensive dataset by integrating data from several sources.
 
+#### **Data Sources**
+* **Weather Data:** Daily weather variables from the **Open-Meteo API**, including temperature (max, min, avg), humidity, wind speed/direction, precipitation, and atmospheric pressure.
+* **Allergen and Air Quality Data:** Daily pollen counts and AQI from the **AirNow API**, including pollutants (e.g., PM2.5).
+* **Lagged and Time-Based Features:** Data from the **three previous days ($t-1$, $t-2$, $t-3$)** will be included as predictors. Features for the day of the year and month will capture seasonality.
 
-* **Weather Data**: We will gather daily weather variables from an API (Open-Meteo), including temperature (max, min, avg), humidity, wind speed/direction, precipitation, and possibly atmospheric pressure.
-* **Allergen and Air Quality Data**: We will use APIs, such as the **AirNow API**, to collect daily pollen counts and the Air Quality Index (AQI), including its pollutants (e.g., PM2.5).
-* **Lagged and Time-Based Features**: To capture the time-series nature of the problem, we will also include data from the **three previous days ($t-1$, $t-2$, $t-3$)** as predictors (for example, strong winds or rain could affect pollen for the next couple days). We will also add features for the day of the year and month to capture effects of seasonality.
+#### **Data Alignment Strategy**
+To ensure spatial and temporal consistency across data sources:
+- **Primary Location:** All data will be anchored to the **Downtown Boston AirNow monitoring station** (lat: 42.3601°N, lon: -71.0589°W).
+- **Weather Data:** Open-Meteo API will be queried using the exact coordinates of the AirNow station. Open-Meteo interpolates data from nearby weather stations, ensuring accurate local conditions.
+- **AQI Data:** Collected directly from the Downtown Boston AirNow station via the AirNow API.
+- **Pollen Data:** We will use Ambee API, which provides pollen estimates for our exact coordinates, ensuring alignment with the reference point.
+- **Acceptable Distance Threshold:** All data sources will be within a **10-mile radius** of the reference point. For pollen, we acknowledge that counts represent regional conditions, which is appropriate given pollen dispersion patterns.
+- **Temporal Alignment:** All data will be aggregated to **daily values**, with timestamps aligned to noon Eastern Time for consistency.
 </br></br>
 
 ---
 
 
 ### Modeling
+We will develop two prediction models:
 
+1. **Pollen Prediction Model:**
+   - **Task:** Multi-output regression predicting continuous pollen counts for tree, grass, and weed allergens.
+   - **Algorithms:** Linear Regression (baseline), Random Forest Regressor, and XGBoost Regressor.
+   - **Evaluation Metrics:** RMSE, MAE, and R² on continuous predictions.
 
-We will begin with **linear regression**, which provides an interpretable baseline model. The linear relationship is justified by the theoretical connection between weather variables and allergen levels (i.e., wind speed linearly increasing pollen dispersal) as well as the seasonal nature of AQI and allergen levels.
+2. **AQI Prediction Model:**
+   - **Task:** Regression predicting continuous AQI values, followed by categorization into EPA standard categories (Good/Moderate/Unhealthy/etc.).
+   - **Algorithms:** 
+      - Linear Regression: as a baseline to observe relationships between variables
+      - Random Forest Regressor: less prone to over-fitting, less affected by hyperparameterization
+      - XGBoost Regressor: Generally considered to have higher performance, although could be too complex
+   - **Evaluation Metrics:**
+     - Regression: RMSE, MAE, and R² on continuous AQI values.
+     - Classification: Accuracy, F1-score, and Confusion Matrix on categorized AQI predictions.
 
-
-The model will take the following general form:
-
+The models will use the following general form:
 
 $Y_t = \beta_0 + \beta_1 X_{1,t} + \beta_2 X_{2,t-1} + \beta_3 X_{3,t-2} + ... + \epsilon$
 
-
 Where:
 * $Y_t$ is the allergen count or AQI on day $t$.
-* $X$ are the various weather and air quality features, including the lagged data from previous days.
-
-
-After establishing this baseline, we plan on going more in depth by using XGBoost in order to consider more complex interactions (for example, what occurs when heat is high and wind is low vs low heat and low wind, etc.)
+* $X$ are the various weather and air quality features, including lagged data from previous days.
 </br></br>
 
 ---
 
 
 ### Data Visualization
-
-
-Visualization will be crucial for both exploratory data analysis and communicating the model's findings.
-
-
-* **Correlation Heatmaps**: These would be used to reveal relationships between weather features and target variables, guiding how we further develop our models. 
-* **Time Series Line Plot**: A primary visualization to show **long-term trends and spikes** in both AQI and allergen data over time. Dual-axis plots will be used to compare weather variables to AQI/allergen counts on the same timeline. 
-* **Scatter Plots with Regression Lines**: This would help visualize pairwise relationships between functions and visually assess the linearity assumptions made by our baseline regression model. 
-* **Feature Importance Bar Charts (XGBoost)**: This would be used to visualize which features have the strongest influence on the model’s predictions. 
+Visualization will be crucial for exploratory data analysis and communicating findings:
+* **Correlation Heatmaps:** To reveal relationships between weather features and target variables.
+* **Time Series Line Plots:** To show long-term trends and spikes in AQI and allergen data. Dual-axis plots will compare weather variables to AQI/allergen counts.
+* **Scatter Plots with Regression Lines:** To visualize pairwise relationships and assess linearity assumptions.
+* **Feature Importance Bar Charts (XGBoost):** To highlight features with the strongest influence on predictions.
 </br></br>
-
 ---
 
-
 ### Test Plan
-
-
-The project will use an **out-of-sample forecasting** test plan, which is appropriate for time-series data.
-
-
-* **Training Data**: We will train our model on all collected data up to the end of 2024.
-* **Testing Data**: We will withhold and test the model on all data collected from **2025 onward**. This is to evaluate the model on untrained data.
+The project will use an **out-of-sample forecasting** test plan:
+* **Training Data:** All collected data up to the end of 2024.
+* **Testing Data:** All data collected from **2025 onward** to evaluate performance on untrained data.
+* **Benchmarking:** Models will be compared using **5-fold cross-validation** on the training set and final evaluation on the 2025 test set.
 </br></br>
