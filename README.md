@@ -1,6 +1,5 @@
 # CS506 Project Proposal
 
-
 ### Members:
 * Anna LaPrade - U14515609 - alaprade@bu.edu
 * Saniya Sekhon - U68321677 - saneya52@bu.edu 
