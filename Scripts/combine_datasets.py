@@ -4,14 +4,24 @@ import numpy as np
 we can replace the dummy data with them'''
 
 #for real data
-# weather_df = pd.read_csv('xxx.csv')
-# pollen_df = pd.read_csv('yyy.csv')
-# aqi_df = pd.read_csv('zzz.csv')
+# weather_df = pd.read_csv('../Data/boston-weather-data(open_meteo).csv')
+# pollen_df = pd.read_csv('../Data/EPHT_Pollen_Data.csv')
+# aqi_df = pd.read_csv('../Data/boston_pollutants_with_aqi.csv')
+
+#rename 'time' col to 'date'
+#weather_df.rename(columns={'time': 'date'}, inplace=True)
+#aqi_df.rename(columns={'time': 'date'}, inplace=True)
 
 #put in datetime format
-# weather_df['date'] = pd.to_datetime(weather_df['date'])
-# pollen_df['date'] = pd.to_datetime(pollen_df['date'])
-# aqi_df['date'] = pd.to_datetime(aqi_df['date'])
+#weather_df['date'] = pd.to_datetime(weather_df['date'], errors='coerce')
+#aqi_df['date'] = pd.to_datetime(aqi_df['date'], errors='coerce')
+#pollen_df['date'] = pd.to_datetime(pollen_df['Date'], errors='coerce')
+
+#choose relevant cols
+#pollen_df = pollen_df[['date', 'Tree', 'Grass', 'Weed', 'Ragweed', 'Total_Pollen']]
+
+#fill missing vals w/ 0s
+#pollen_df.fillna(0, inplace=True)
 
 #dummy data
 
