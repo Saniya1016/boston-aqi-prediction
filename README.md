@@ -102,3 +102,8 @@ The project will use an **out-of-sample forecasting** test plan:
 * **Testing Data:** All data collected from **2025 onward** to evaluate performance on untrained data.
 * **Benchmarking:** Models will be compared using **5-fold cross-validation** on the training set and final evaluation on the 2025 test set.
 </br></br>
+
+---
+
+### Correlation Analysis - Heatmaps
+To observe any possible linear relationships, Pearson correlation matrices were computed and displayed in a heat map for easy viewing. 
