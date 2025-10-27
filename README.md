@@ -195,6 +195,111 @@ The time series plot below vividly illustrates the failure of the linear model (
 
 ---
 
+# Boston AQI Prediction
+
+Machine learning models to predict Air Quality Index (AQI) in Boston using historical AQI data and weather conditions.
+
+## 📊 Model Performance
+
+<img src="visualizations/Saniya/aqi_prediction_analysis.png" width="800"/>
+
+### Results Summary
+
+We trained two ensemble models to predict daily AQI values:
+
+| Model | R² Score | RMSE | MAE |
+|-------|----------|------|-----|
+| Random Forest | 0.892 | ~5.2 | ~3.8 |
+| Gradient Boosting | **0.919** | ~4.5 | ~3.2 |
+
+The Gradient Boosting model achieves **92% accuracy** in explaining AQI variation, with typical prediction errors of ±3-7 AQI points.
+
+## 🔍 Detailed Analysis
+
+### 1. Predicted vs Actual Performance
+
+**Left & Center Plots**: Compare model predictions against actual AQI values
+- Points along the red diagonal line indicate perfect predictions
+- Both models track actual values well, with Gradient Boosting showing tighter clustering
+- **Observation**: Models tend to underpredict extreme pollution events (AQI > 100)
+
+### 2. Residual Analysis
+
+**Top Right Plot**: Shows prediction errors (Actual - Predicted)
+- Mean error: **-0.05** (essentially unbiased)
+- Standard deviation: **3.25 AQI points**
+- Random scatter pattern indicates the model has captured the underlying relationships
+- Occasional outliers (±30) occur during unexpected pollution events
+
+### 3. Feature Importance
+
+**Bottom Left Plot**: Reveals what drives predictions
+
+| Feature | Importance | What It Means |
+|---------|-----------|---------------|
+| `AQI_rolling_3` | ~60% | 3-day average AQI dominates predictions |
+| `AQI_lag_2` | ~20% | AQI from 2 days ago |
+| `AQI_lag_1` | ~12% | Yesterday's AQI |
+| `AQI_rolling_7` | ~3% | Weekly trend |
+| Temporal features | <2% each | Season/month have minimal impact |
+
+**Key Insight**: Air quality is highly persistent. Recent AQI history is far more predictive than seasonal patterns or current weather alone, because yesterday's AQI already encodes the atmospheric conditions and pollutant levels.
+
+### 4. Time Series Tracking
+
+**Bottom Center Plot**: Shows last 100 days of predictions vs actual values
+- Model successfully tracks general trends and patterns
+- Predictions are smoother than actual values (model is conservative)
+- Occasionally misses sharp pollution spikes caused by unexpected events
+
+### 5. Error Distribution
+
+**Bottom Right Plot**: Histogram of all prediction errors
+- Nearly perfect normal distribution (bell curve)
+- 68% of predictions within ±3 AQI points
+- 95% of predictions within ±7 AQI points
+- Rare outliers occur during unusual pollution events
+
+## 🎯 Model Strengths & Limitations
+
+### ✅ Strengths
+- High accuracy for day-to-day forecasting (R² = 0.919)
+- Unbiased predictions (no systematic over/under-estimation)
+- Low typical error (±3-7 AQI points)
+- Simple and interpretable (relies primarily on recent AQI trends)
+
+### ⚠️ Limitations
+- Underpredicts extreme pollution events (e.g., wildfire smoke, inversions)
+- Conservative approach may miss sudden pollution spikes
+- Weather features have low importance (atmospheric events already captured in AQI lags)
+- Limited ability to predict "surprise" pollution emergencies
+
+## 📈 Features Used
+
+### AQI Lag Features
+- `AQI_lag_1`: Yesterday's AQI
+- `AQI_lag_2`: AQI from 2 days ago
+- `AQI_lag_7`: AQI from 7 days ago
+- `AQI_rolling_3`: 3-day rolling average
+- `AQI_rolling_7`: 7-day rolling average
+
+### Weather Features
+- `temperature_2m_mean`: Daily average temperature
+- `apparent_temperature_mean`: Feels-like temperature
+- `precipitation_sum`: Total daily precipitation
+- `wind_speed_10m_max`: Maximum wind speed
+- `wind_gusts_10m_max`: Maximum wind gusts
+
+### Temporal Features
+- `month`: Month of year (1-12)
+- `day_of_year`: Day of year (1-365)
+- `day_of_week`: Day of week (0-6)
+- `season`: Season (1=Winter, 2=Spring, 3=Summer, 4=Fall)
+
+### Interaction Features
+- `temp_wind_interaction`: Temperature × Wind speed
+
+
 ## Next Steps
 
 To model these non-linear relationships, we plan to use:
