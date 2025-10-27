@@ -183,9 +183,9 @@ Our initial attempts used Linear Regression as a baseline, revealing major diffe
 
 | Model | Target Variable | Features | R² Score | Key Takeaway |
 |--------|------------------|-----------|-----------|---------------|
-| Model 1 | AQI | Pollutants (PM2.5, O3, NO2, etc.) | 0.9342 | High R² is expected, as AQI is calculated directly from these pollutants. Serves as a sanity check. |
-| Model 2 | Total Pollen | Time features (Day of Year, etc.) | 0.2211 | Pollen prediction based only on time (seasonality) is poor. |
-| Model 3 | Total Pollen | Time + Weather Features | 0.2398 | Adding weather marginally improves performance but fails to capture spikes. Confirms need for non-linear models. |
+| Model 1 | AQI | Pollutants (PM2.5, O3, CO, NO2, SO2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.9342 | High R² is expected because AQI is calculated directly from the pollutant features. Adding weather provides a comprehensive baseline for comparison, confirming data integrity. |
+| Model 2 | Total Pollen | Time features (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) | 0.2211 | Pollen prediction based only on time (seasonality) is poor due to sporadicness of pollen during pollen season |
+| Model 3 | Total Pollen | Time (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.2398 | Adding weather marginally improves performance but fails to capture spikes. Confirms need for non-linear models. |
 
 <img src="visualizations/Plum/linear_regression.png" width="800"/>
 
