@@ -213,7 +213,7 @@ This motivated our next step — unsupervised clustering to uncover hidden relat
 ## Clusters With Dates
 These new clustering, including day and date, also highlights **temporal trends**:
 
-![Clusters - Weather to Pollen More Clusters + Dates](visualizations/Anna/aqi_pollen_kmeans_12_date.png.png)
+![Clusters - Weather to Pollen More Clusters + Dates](visualizations/Anna/weather_pollen_kmeans_18_dates.png.png)
 
 
 - **Weather → Pollen clusters:**  
