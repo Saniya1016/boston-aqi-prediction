@@ -213,7 +213,7 @@ This motivated our next step — unsupervised clustering to uncover hidden relat
 ## Clusters With Dates
 These new clustering, including day and date, also highlights **temporal trends**:
 
-![Clusters - Weather to Pollen More Clusters + Dates](visualizations/Anna/weather_pollen_kmeans_18_dates.png)
+![Clusters - Weather to Pollen More Clusters + Dates](visualizations/Anna/aqi_pollen_kmeans_12_date.png.png)
 
 
 - **Weather → Pollen clusters:**  
@@ -221,7 +221,7 @@ These new clustering, including day and date, also highlights **temporal trends*
   - Low pollen clusters often correspond to **winter (March) or rainy periods**.  
   - Month and day data help pinpoint typical pollen peak windows.
 
-![Clusters - Weather to AQI More Clusters + Dates](visualizations/Anna/weather_aqi_kmeans_14.png)
+![Clusters - Weather to AQI More Clusters + Dates](visualizations/Anna/weather_aqi_kmeans_14_dates.png)
 
 - **Weather → AQI clusters:**  
   - High AQI clusters appear mostly in **summer (June–July)**, aligning with hot, dry days.  
