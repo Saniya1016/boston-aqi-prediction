@@ -205,6 +205,35 @@ The 11 clusters revealed **distinct patterns** between pollen load and air quali
 - **High AQI often coincides with high pollen counts**, suggesting days with stagnant air trap both pollutants and pollen.  
 - **Low AQI clusters** correspond to either clean air with low pollen or mild days with moderate pollen, showing how weather dispersal effects influence both factors.  
 - The clustering helps identify **pollution-pollen “risk days”** for sensitive populations.
+This motivated our next step — unsupervised clustering to uncover hidden relationships.
+</br></br>
+
+---
+
+## Clusters With Dates
+These new clustering, including day and date, also highlights **temporal trends**:
+
+![Clusters - Weather to Pollen More Clusters + Dates](visualizations/Anna/weather_pollen_kmeans_18_dates.png)
+
+
+- **Weather → Pollen clusters:**  
+  - High pollen clusters (e.g., clusters 4, 6, 7, 16, 17) predominantly occur in **spring (April–May)**.  
+  - Low pollen clusters often correspond to **winter (March) or rainy periods**.  
+  - Month and day data help pinpoint typical pollen peak windows.
+
+![Clusters - Weather to AQI More Clusters + Dates](visualizations/Anna/weather_aqi_kmeans_14.png)
+
+- **Weather → AQI clusters:**  
+  - High AQI clusters appear mostly in **summer (June–July)**, aligning with hot, dry days.  
+  - Low AQI clusters often occur during **cooler or rainy months**.
+
+![Clusters - Pollen to AQI More Clusters + Dates](visualizations/Anna/aqi_pollen_kmeans_12_date.png.png)
+
+- **AQI ↔ Pollen clusters:**  
+  - Extreme pollen spikes combined with moderate AQI are concentrated in **late spring**.  
+  - Late summer shows low pollen and low AQI, indicating cleaner air and fewer allergens.  
+
+Including the **month/day information** from clusters helps identify **seasonal trends** that are not captured by simple linear correlations.
 
 
 ### Cluster Conclusions 
