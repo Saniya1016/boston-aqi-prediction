@@ -6,6 +6,9 @@ Saniya Sekhon - U68321677 - saneya52@bu.edu
 Sorathorn Thongpitukthavorn - U01165313 - plum@bu.edu  
 Aline Mukadi - U43727980 - alemuk@bu.edu  
 
+## Midterm Report Video 
+https://youtu.be/GTi8yNdaAHU 
+
 
 <br></br>
 
