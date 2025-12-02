@@ -1,0 +1,28 @@
+
+MODEL TRAINING SUMMARY
+============================================================
+
+Dataset:
+- Training: 4569 samples
+- Validation: 252 samples  
+- Test: 327 samples
+
+Best Model: Gradient Boosting
+
+Validation Performance:
+- RMSE: 1.03
+- MAE: 0.70
+- R²: 0.9899
+
+Test Performance:
+- RMSE: 2.08
+- MAE: 1.05
+- R²: 0.9770
+
+Top 3 Features:
+      feature  importance
+AQI_rolling_3    0.660850
+    AQI_lag_2    0.203126
+    AQI_lag_1    0.121257
+
+Model saved to: aqi_prediction_model.pkl
