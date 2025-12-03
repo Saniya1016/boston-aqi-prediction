@@ -4,9 +4,9 @@ import numpy as np
 we can replace the dummy data with them'''
 
 #read in data
-weather_df = pd.read_csv(r'../Data/boston-weather-data(open_meteo).csv', skiprows=2 ) #skip metadata lines
-pollen_df = pd.read_csv(r'../Data/EPHT_Pollen_Data.csv')
-aqi_df = pd.read_csv(r'../Data/boston_pollutants_with_aqi.csv')
+weather_df = pd.read_csv(r'Data/boston-weather-data(open_meteo).csv', skiprows=2 ) #skip metadata lines
+pollen_df = pd.read_csv(r'Data/EPHT_Pollen_Data.csv')
+aqi_df = pd.read_csv(r'Data/boston_pollutants_with_aqi.csv')
 
 #rename 'time' col to 'date'
 weather_df.rename(columns={'time': 'date'}, inplace=True)
@@ -32,5 +32,5 @@ numeric_cols = merged_df.select_dtypes(include=[np.number]).columns
 merged_df[numeric_cols] = merged_df[numeric_cols].apply(lambda col: col.fillna(col.mean()))
 
 #save to new file
-merged_df.to_csv('merged_data.csv', index=False)
-print("file saved as 'merged_data.csv'")
+merged_df.to_csv('Lola/merged_data.csv', index=False)
+print("file saved as 'Lola/merged_data.csv'")
