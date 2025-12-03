@@ -1,0 +1,5 @@
+Weather-only AQI baseline (no lagged AQI, no pollen, no pollutants)
+Features: ['temperature_2m_mean (°C)', 'precipitation_sum (mm)', 'apparent_temperature_mean (°C)', 'wind_gusts_10m_max (km/h)', 'wind_speed_10m_max (km/h)', 'wind_direction_10m_dominant (°)']
+Train R^2 (LinearRegression): 0.065
+Val   R^2 (LinearRegression): -0.069
+Val   R^2 (RandomForest): -0.059
