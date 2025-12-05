@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+import plotly.graph_objects as go
 
 class LinearRegressionAQI:
     def __init__(self):
@@ -49,25 +50,44 @@ class LinearRegressionAQI:
 
         return results
 
-    def plot_results(self, data_dict, fig):
+    def plot_results(self, data_dict=None):
         if not self.trained:
-            plt.text(0.5, 0.5, "Model not trained yet.", ha="center")
-            return
+            fig = go.Figure()
+            fig.add_annotation(text="Model not trained yet.", x=0.5, y=0.5, showarrow=False)
+            return fig
 
         actual = self.y_test.values
         predicted = self.y_pred
 
-        # Scatter plot
-        plt.scatter(actual, predicted, alpha=0.6, label="Predictions")
+        fig = go.Figure()
 
-        # Diagonal line (perfect prediction)
-        line_min = min(actual.min(), predicted.min())
-        line_max = max(actual.max(), predicted.max())
-        plt.plot([line_min, line_max], [line_min, line_max], 'r--', label="Perfect Fit (y=x)")
+        # Scatter points
+        fig.add_trace(go.Scatter(
+            x=actual,
+            y=predicted,
+            mode='markers',
+            name='Predictions',
+            opacity=0.6
+        ))
 
-        # Labels and style
-        plt.xlabel("Actual AQI")
-        plt.ylabel("Predicted AQI")
-        plt.title("Actual vs Predicted AQI (Test Set)")
-        plt.legend()
-        plt.tight_layout()
+        # Perfect fit reference line
+        min_val = min(actual.min(), predicted.min())
+        max_val = max(actual.max(), predicted.max())
+
+        fig.add_trace(go.Scatter(
+            x=[min_val, max_val],
+            y=[min_val, max_val],
+            mode='lines',
+            name='Perfect Fit (y=x)',
+            line=dict(dash='dash', color='red')
+        ))
+
+        fig.update_layout(
+            title="Actual vs Predicted AQI (Test Set)",
+            xaxis_title="Actual AQI",
+            yaxis_title="Predicted AQI",
+            template="plotly_white",
+        )
+
+        return fig
+
