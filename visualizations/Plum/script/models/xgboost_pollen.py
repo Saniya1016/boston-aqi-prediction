@@ -4,16 +4,17 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import plotly.graph_objects as go
 
 class XGBoostPollen:
     def __init__(self):
-        # Using sklearn API wrapper for easier integration
         self.model = xgb.XGBRegressor(
             objective='reg:squarederror',
             learning_rate=0.05,
             max_depth=6,
             subsample=0.8,
             colsample_bytree=0.8,
+            tree_method='hist', # Matches 'hist' usually implied by fast execution
             n_estimators=1200,
             early_stopping_rounds=50,
             eval_metric='rmse',
@@ -25,7 +26,7 @@ class XGBoostPollen:
         self.metrics = {}
 
     def short_description(self):
-        return "XGBoost Regressor using extensive feature engineering (Seasonality, Weighted Rolling, Lags, Interactions)."
+        return "XGBoost Regressor (Notebook Setup). Full feature set: Seasonality, Weighted Rolling, Lags, Interactions."
 
     def _engineer_features(self, data_dict):
         # 1. Merge
@@ -40,7 +41,7 @@ class XGBoostPollen:
         df = w.merge(p, on='Date', how='inner').merge(pol, on='Date', how='inner')
         df = df[df['Date'].dt.month.isin(range(3, 11))].copy()
 
-        # 2. Features matching Notebook Section 5
+        # 2. Base Features
         target = "Total_Pollen"
         df["day_of_year"] = df["Date"].dt.dayofyear
         df["lag1"] = df[target].shift(1)
@@ -52,17 +53,18 @@ class XGBoostPollen:
         threshold = df[target].mean() + df[target].std()
         df["is_spike"] = (df[target] > threshold).astype(int)
 
-        # Seasonal
+        # 3. Seasonal (Sin/Cos)
         df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
         df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
 
-        # Weighted rolling + Lags
+        # 4. Weighted Rolling + Lags
         weights = np.array([0.1, 0.3, 0.6])
         rolling_cols = [
             "temperature_2m_mean (°C)", "apparent_temperature_mean (°C)",
             "PM2.5", "O3", "CO", "NO2", "SO2",
             "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2", "AQI"
         ]
+        # Filter existing
         rolling_cols = [c for c in rolling_cols if c in df.columns]
 
         for col in rolling_cols:
@@ -74,13 +76,15 @@ class XGBoostPollen:
             for lag in range(1, 4):
                 df[f"{col}_lag{lag}"] = df[col].shift(lag).bfill()
 
-        # Interactions
-        if 'temperature_2m_mean (°C)' in df.columns and 'AQI' in df.columns:
-            df["temp_x_aqi"] = df['temperature_2m_mean (°C)'] * df['AQI']
-        if 'apparent_temperature_mean (°C)' in df.columns and 'PM2.5' in df.columns:
-            df["app_temp_x_pm25"] = df['apparent_temperature_mean (°C)'] * df['PM2.5']
-        if 'wind_speed_10m_max (km/h)' in df.columns and 'O3' in df.columns:
-            df["wind_x_o3"] = df['wind_speed_10m_max (km/h)'] * df['O3']
+        # 5. Interactions
+        interaction_pairs = [
+            ('temperature_2m_mean (°C)', 'AQI'),
+            ('apparent_temperature_mean (°C)', 'PM2.5'),
+            ('wind_speed_10m_max (km/h)', 'O3'),
+        ]
+        for col1, col2 in interaction_pairs:
+            if col1 in df.columns and col2 in df.columns:
+                df[f'{col1}_x_{col2}'] = df[col1] * df[col2]
 
         df = df.dropna()
         return df
@@ -91,7 +95,7 @@ class XGBoostPollen:
 
         drop_cols = ["Date", "time", "date", "Month", "Year", "Day", "Week", 
                      "Tree_Level", "Grass_Level", "Weed_Level", "Ragweed_Level", 
-                     "AQI_Category", "OBJECTID", "Tree", "Grass", "Weed", "Ragweed", target]
+                     "AQI_Category", "OBJECTID", "Tree", "Grass", "Weed", "Ragweed", "day_of_year", target]
         
         feature_cols = [c for c in df.columns if c not in drop_cols and df[c].dtype in ['float64', 'int64', 'int32']]
         
@@ -100,6 +104,7 @@ class XGBoostPollen:
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+        # Train
         self.model.fit(
             X_train, y_train,
             eval_set=[(X_train, y_train), (X_test, y_test)],
@@ -120,19 +125,40 @@ class XGBoostPollen:
             "Predicted Pollen": self.y_pred
         })
 
-    def plot_results(self, data_dict, fig):
+    def plot_results(self, data_dict=None):
         if not self.trained:
-            plt.text(0.5, 0.5, "Model not trained.", ha="center")
-            return
+            fig = go.Figure()
+            fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
+            return fig
 
-        ax = fig.add_subplot(111)
-        ax.scatter(self.y_test, self.y_pred, alpha=0.6, color='orange', label="Predictions")
-        
-        line_max = max(self.y_test.max(), self.y_pred.max())
-        ax.plot([0, line_max], [0, line_max], 'k--', label="Perfect Fit")
+        actual = self.y_test
+        predicted = self.y_pred
 
-        ax.set_xlabel("Actual Total Pollen")
-        ax.set_ylabel("Predicted Total Pollen")
-        ax.set_title(f"XGBoost Results\nR²: {self.metrics['R2']:.3f} | RMSE: {self.metrics['RMSE']:.1f}")
-        ax.legend()
-        fig.tight_layout()
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(
+            x=actual,
+            y=predicted,
+            mode='markers',
+            name='Predictions',
+            opacity=0.6
+        ))
+
+        line_max = max(actual.max(), predicted.max())
+
+        fig.add_trace(go.Scatter(
+            x=[0, line_max],
+            y=[0, line_max],
+            mode='lines',
+            name='Perfect Fit',
+            line=dict(dash='dash', color='white')
+        ))
+
+        fig.update_layout(
+            title=f"XGBoost Results<br>R²: {self.metrics['R2']:.3f} | RMSE: {self.metrics['RMSE']:.1f}",
+            xaxis_title="Actual Total Pollen",
+            yaxis_title="Predicted Total Pollen",
+            template="plotly_white",
+        )
+
+        return fig
