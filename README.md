@@ -138,8 +138,8 @@ These new clustering analyses, including day and date, also highlight temporal t
 <img src="visualizations/Anna/weather_pollen_kmeans_18_dates.png.png" width="400"/>
 
 **Weather → Pollen clusters:**  
-- High pollen clusters (e.g., clusters 4, 6, 7, 16, 17) predominantly occur in spring (April–May).  
-- Low pollen clusters often correspond to winter (March) or rainy periods.  
+- **High** pollen clusters (e.g., clusters 4, 6, 7, 16, 17) predominantly occur in spring (April–May).  
+- **Low** pollen clusters often correspond to winter (March) or rainy periods.  
 - Month and day data help pinpoint typical pollen peak windows.  
 
 <img src="visualizations/Anna/weather_aqi_kmeans_14_dates.png" width="400"/>
@@ -187,7 +187,7 @@ Our initial attempts used Linear Regression as a baseline, revealing major diffe
 | Model | Target Variable | Features | R² Score | Key Takeaway |
 |--------|------------------|-----------|-----------|---------------|
 | Model 1 | AQI | Pollutants (PM2.5, O3, CO, NO2, SO2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.9342 | High R² is expected because AQI is calculated directly from the pollutant features. Adding weather provides a comprehensive baseline for comparison, confirming data integrity. |
-| Model 2 | Total Pollen | Time features (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) | 0.2211 | Pollen prediction based only on time (seasonality) is poor due to sporadicness of pollen during pollen season |
+| Model 2 | Total Pollen | Time features (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) | 0.2211 | Pollen prediction based only on time (seasonality) is poor due to the sporadicity of pollen during pollen season |
 | Model 3 | Total Pollen | Time (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.2398 | Adding weather marginally improves performance but fails to capture spikes. Confirms need for non-linear models. |
 
 <img src="visualizations/Plum/linear_regression.png" width="800"/>
@@ -196,7 +196,28 @@ The time series plot below vividly illustrates the failure of the linear model (
 
 <img src="visualizations/Plum/pollen_predicted.png" width="800"/>
 
----
+
+## Weather AQI Baseline
+
+Before using advanced models, we evaluated how well weather variables alone would be able to predict AQI. This baseline helps to determine if the weather can explain day-to-day changes in air quality. 
+
+### 1. Method
+We used a merged dataset and selected only the weather features, as mentioned above. A chronological 80/20 split ensured that the validation set represented any future dates. 
+
+Two models were tested:
+- Linear Regression: Baseline linear predictor
+- Random Forest Regressor: Captures simple nonlinearities
+
+### 2. Results
+
+        Linear Regression (Train R²): 0.065   
+        Linear Regression (Val R²):  -0.069  
+        Random Forest     (Val R²):  -0.059
+
+- Weather alone was not able to explain any of the variability in AQI. 
+- Validation scores are negative which indicates that the predictions are worse than a horizontal baseline. 
+
+This confirms that recent AQI history and pollutant levels are more predictive than weather features.
 
 # Boston AQI Prediction
 
@@ -310,3 +331,103 @@ To model these non-linear relationships, we plan to use:
 - **XGBoost:** For gradient-boosted decision trees that can further improve prediction accuracy on these patterns.  
 
 These methods should allow us to predict pollen levels from weather and AQI, and vice versa, while accounting for the subtle, non-linear dependencies suggested by our clustering results.
+
+
+# Visualizations
+### Data Sources: 
+- **Weather Data:** Open-Meteo
+- **Pollen Data:** EPHT
+- **Pollutant and AQI Data:** EPA
+
+After merging datasets, to understand the seasonal and temporal structure of our variables, we built daily and monthly charts.
+
+Each variable is plotted across the full date range to show overall temporal behavior. 
+
+<img src="Lola/Plots (Monthly)/by fours/AQI_monthly_timeseries.png" width="600"/>
+
+<img src="Lola\Plots (Monthly)\by fours\Grass_monthly_timeseries.png" width="600"/>
+
+<img src="Lola\Plots (Monthly)\by fours\Ragweed_monthly_timeseries.png" width="600"/>
+
+<img src="Lola\Plots (Monthly)\by fours\Total_Pollen_monthly_timeseries.png" width="600"/>
+
+<img src="Lola\Plots (Monthly)\by fours\Tree_monthly_timeseries.png
+" width="600"/>
+
+<img src="Lola\Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="600"/>    
+
+#### Results Summary:  
+- Pollen rises sharply in spring and falls to zero in the winter.
+- AQI shows milder seasonal variation, with summer increases.
+- Temperature dominates seasonal behavior and strongly correlates with pollen peaks.
+
+## K-Means Clustering
+While correlation heatmaps showed almost no strong linear relationships between weather, AQI, and pollen, the clustering visualizations reveal that the system behaves in non-linear, regime-based patterns.
+
+ **Weather → Pollen clusters:**
+
+ <img src="visualizations\Saniya\scripts\plots\aqi\weather_clusters_visualization.png" width="600"/>
+
+These charts show daily weather observations colored by assigned K-Means cluster. The clusters form clear seasonal pockets:
+
+- **Highest pollen spikes:** Cool/dry early spring days
+- **Suppressed pollen:** Warm/humid post-rain periods
+- **Moderate pollen:** Mild transitional days
+
+The pollen levels change abruptly based on the meteorological and biological thresholds, which explains why linear regression fails. The underlying relationship is piecewise and behaves differently depending on which environmental state it's in, as opposed to following a single relationship across all conditions.
+
+### Elbow & Silhouette Methods
+
+Across all pairings (weather/pollen, weather/AQI, AQI/pollen), the elbow curve stabilizes around **k = 11-18**,
+  and the silhouette scores peak around **k ≈ 2-3**, then gradually decrease.
+
+<img src="
+visualizations\Saniya\scripts\plots\aqi\clustering_elbow_method.png
+" width="600"/>
+
+The data is high dimensional which requires many clusters to capture subtle regimes. However most clusters fall into a few core macro patterns, such as:
+
+- high pollen
+- post-rain
+- low pollen 
+- stagnant-air high AQI
+
+There is no single linear trend, instead there are multiple nonlinear relationships depending on the cluster.
+
+### Feature Importance
+
+The model uses:
+- AQI_rolling_3
+- AQI_lag_2
+- AQI_lag_1
+
+<img src="
+visualizations\Saniya\scripts\plots\aqi\feature_importance.png
+" width="600"/>
+
+These lag features strongly reflect the cluster structure found earlier. Recent AQI values encode the state of the environmental system, making them strong predictors, whereas weather features appear weaker.
+
+### Validation Performance
+
+<img src="
+visualizations\Saniya\scripts\plots\aqi\validation_performance.png" width="600"/>
+
+From these plots we see a tight alignment along the 1:1 line, mostly random residual scatter, and normal error distribution concentrated around 0. This indicates that non-linear models successfully learn cluster-driven structure.
+
+### Test Set Performance
+
+<img src="visualizations\Saniya\scripts\plots\aqi\test_set_performance.png" width=600>
+
+On unseen data, the model tracks seasonal patterns well and remains stable across cluster transitions. However, it struggles during abrupt environmental shifts, for example sharp AQI spikes after heat waves.
+
+### Full vs. Simple Model Comparison
+
+<img src="
+visualizations\Saniya\scripts\plots\aqi\full_vs_simple_model.png" width="600"/>
+
+This figure demonstrates that:
+- The **simple model** collapses across clusters (high error)
+- The **full model** separates regimes effectively (low error)
+- **Errors** increase disproportionately in extreme regimes when features are removed.
+
+This further confirms the necessity of non-linear, multi-feature models due to the AQI-weather-pollen system consisting of multiple distinct behavioral clusters.
