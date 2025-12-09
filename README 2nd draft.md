@@ -430,7 +430,7 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 # Model Comparison
 
-| **Model**    | **MAE**  | **RMSE**| **R²**   | **Strength **                  |
+| **Model**    | **MAE**  | **RMSE**| **R²**   | **Strength**                  |
 | ------------ | -------- | ------- | -------- | ------------------------------ |
 | **LightGBM** | **84.3** | 238     | **0.36** | Best overall generalization    |
 | Spike Model  | 86       | 233     | 0.38     | Best conceptual fit for spikes |
