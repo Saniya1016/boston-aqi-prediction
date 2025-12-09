@@ -379,8 +379,8 @@ We implemented three non-linear models, each capturing different aspects.
 
 ### Performance
 
-R² ≈ 0.30  
-RMSE ≈ 210  
+- R² ≈ 0.30  
+- RMSE ≈ 210  
 
 ### Interpretation
 
@@ -408,11 +408,11 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 ### Regression Results
 
-** MAE: ~86  **
+**MAE: ~86**
 
-** RMSE: ~233  **
+**RMSE: ~233**
 
-** R²: 0.38  **
+**R²: 0.38**
 
 ### Interpretation
 
