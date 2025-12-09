@@ -209,8 +209,6 @@ States emerge such as:
 
 <img src="visualizations\Anna\aqi_pollen_kmeans_12_date.png.png" width="400"/> 
 
-<img src="visualizations\Saniya\scripts\plots\aqi\clustering_elbow_method.png" width="400"/> 
-
 Environmental behavior is strongly non-linear and regime-based, not linearly correlated. This justifies nonlinear ML modeling.
 
 # AQI Prediction Model
