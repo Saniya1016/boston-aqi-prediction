@@ -355,11 +355,11 @@ We implemented three non-linear models, each capturing different aspects.
 ## LightGBM Regressor (Best Overall Model)
 ### Performance
 
-| MAE  | 84.3  |
+- MAE: 84.3
 
-| RMSE | 238.3 |
+- RMSE: 238.3
 
-| R²   | 0.357 |
+- R²: 0.357
 
 ### Interpretation
 
