@@ -46,35 +46,35 @@ The AQI dataset (used in our air-quality forecasting model) contains 5,844 daily
 
 A complete preprocessing pipeline was built to standardize and enhance the environmental data.
 
-1. Column Standardization
+### Column Standardization
 
-Removed unit markers (°C, mm, km/h)
+- Removed unit markers (°C, mm, km/h)
 
-Converted to lowercase snake_case
+- Converted to lowercase snake_case
 
-Consistent naming across all sources
+- Consistent naming across all sources
 
-2. Temporal Feature Engineering
+### Temporal Feature Engineering
 
 We added cyclical encodings to reflect seasonality:
 
-Day of year (sin, cos)
+- Day of year (sin, cos)
 
-Month (sin, cos)
+- Month (sin, cos)
 
-Weekday (sin, cos)
+- Weekday (sin, cos)
 
 These allow models to learn repeating yearly and weekly biological cycles.
 
-3. Lag & Rolling Features
+### Lag & Rolling Features
 
 Both AQI and pollen have strong autoregressive behavior.
 
 We generated:
 
-Lags: 1, 2, 3, 4, 7, 14, 21, 30, 365 days
+- Lags: 1, 2, 3, 4, 7, 14, 21, 30, 365 days
 
-Rolling averages: 2, 3, 7, 14, 30 days
+- Rolling averages: 2, 3, 7, 14, 30 days
 
 Weather-yesterday and weather-rolling windows
 (to avoid data leakage: no same-day weather is used to predict same-day pollen)
@@ -83,14 +83,14 @@ Weather-yesterday and weather-rolling windows
 
 Pollen has discontinuous spikes. We computed:
 
-pollen_ratio_1d_7d = lag_1 / rolling_7
-z-score thresholding → spike or non-spike label
+- pollen_ratio_1d_7d = lag_1 / rolling_7
+- z-score thresholding → spike or non-spike label
 
 This enables spike-specific modeling.
 
 ### Train/Validation/Test Split (Pollen Models)
 
-Chronological split:
+#### Chronological split:
 
 - **Train:** 2020–2021
 
@@ -159,7 +159,7 @@ Monthly time-series reveal:
 Linear correlations underestimated the true relationships.
 K-Means clustering uncovered distinct environmental regimes.
 
-1. Weather → Pollen Clusters
+### Weather → Pollen Clusters
 
 Using k = 17:
 
@@ -169,7 +169,7 @@ Using k = 17:
 
 - **Moderate pollen:** transitional weather days
 
-2. Weather → AQI Clusters (k = 14)
+### Weather → AQI Clusters (k = 14)
 
 - **High AQI:** hot, dry, stagnant days
 
@@ -177,7 +177,7 @@ Using k = 17:
 
 - **Moderate AQI:** mild transitional conditions
 
-3. AQI ↔ Pollen Clusters (k = 11)
+### AQI ↔ Pollen Clusters (k = 11)
 
 States emerge such as:
 
@@ -187,7 +187,7 @@ States emerge such as:
 
 - High AQI + High Pollen (stagnant warm spring days)
 
-4. Date-Aware Clustering
+### Date-Aware Clustering
 
 - Adding month/day reveals:
 
@@ -196,7 +196,6 @@ States emerge such as:
 - AQI clusters in July–August
 
 - Suppression periods aligning with rainfall events
-
 
 <img src="visualizations\Anna\weather_pollen_kmeans_17.png" width="400"/> 
 
@@ -353,14 +352,14 @@ Predicting pollen is substantially more difficult due to:
 
 We implemented three non-linear models, each capturing different aspects.
 
-1. LightGBM Regressor (Best Overall Model)
-## Performance
+## LightGBM Regressor (Best Overall Model)
+### Performance
 
 | MAE  | 84.3  |
 | RMSE | 238.3 |
 | R²   | 0.357 |
 
-## Interpretation
+### Interpretation
 
 - Learns smooth seasonal and short-term pollen movements
 
@@ -374,14 +373,14 @@ We implemented three non-linear models, each capturing different aspects.
 
 <img src="visualizations\pollen model images\lightgbm_timeseries.png" width="400"/> 
 
-2. XGBoost Regressor
+## XGBoost Regressor
 
-## Performance
+### Performance
 
 R² ≈ 0.30  
 RMSE ≈ 210  
 
-## Interpretation
+### Interpretation
 
 - Performs competitively on mid-range counts
 
@@ -405,13 +404,13 @@ RMSE ≈ 210
 
 Accurately distinguishes spike vs. non-spike conditions.
 
-## Regression Results
+### Regression Results
 
 **MAE: ~86  **
 **RMSE: ~233  **
 **R²: 0.38  **
 
-## Interpretation
+### Interpretation
 
 - Best theoretical structure
 
