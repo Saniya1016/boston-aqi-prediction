@@ -408,9 +408,11 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 ### Regression Results
 
-**MAE: ~86  **
-**RMSE: ~233  **
-**R²: 0.38  **
+** MAE: ~86  **
+
+** RMSE: ~233  **
+
+** R²: 0.38  **
 
 ### Interpretation
 
