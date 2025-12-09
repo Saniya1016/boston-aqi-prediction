@@ -5,10 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # Allows manual triggering from the GitHub Actions tab
   workflow_dispatch:
 
 jobs:
   build-and-process:
+    # Use a standard Linux runner for speed and compatibility
     runs-on: ubuntu-latest
     
     strategy:
@@ -19,40 +21,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 1. Set up the Python environment
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          # Use caching to speed up subsequent dependency installs
           cache: 'pip' 
           
-      # 1. Install Dependencies (USING WORKAROUND to override broken paths)
-      # This explicitly tells the Makefile to use the 'bin' path instead of 'Scripts'
+      # 2. Install Dependencies (Uses the OS-compatible makefile)
       - name: Install Dependencies (make install)
-        run: |
-          make install \
-            PYTHON=./venv/bin/python \
-            PIP=./venv/bin/pip \
-            JUPYTER=./venv/bin/jupyter
+        run: make install 
         
-      # 2. Execute the AQI Prediction Notebook (Also needs the overrides)
+      # 3. Execute the AQI Prediction Notebook
       - name: Run AQI Prediction Notebook
-        run: make run-aqI-nb JUPYTER=./venv/bin/jupyter
-
-      # 3. Execute the Pollen Models Notebook (Also needs the overrides)
+        run: make run-aqi-nb
+        
+      # 4. Execute the Pollen Models Notebook
       - name: Run Pollen Models Notebook
-        run: make run-pollen-nb JUPYTER=./venv/bin/jupyter
+        run: make run-pollen-nb
 
-      # 4. Verify Streamlit App Existence
+      # 5. Verify Streamlit App Existence
       - name: Verify Streamlit App Existence
         run: |
-          if [ -f "visualizations/Plum/script/streamlit.py" ]; then
+          # Use 'test -f' (standard Linux/bash file check)
+          if test -f "visualizations/Plum/script/streamlit.py"; then
             echo "Streamlit app file found and ready."
           else
             echo "Streamlit app file NOT found at expected path."
             exit 1
           fi
 
-      # 5. Archive the Executed Notebooks for verification
+      # 6. Archive the Executed Notebooks for verification
       - name: Archive Executed Notebooks
         uses: actions/upload-artifact@v4
         with:
@@ -60,3 +60,7 @@ jobs:
           path: |
             Models/aqi_model/aqi_predict_cts.ipynb
             Models/pollen_models/pollen_models.ipynb
+
+      # 7. Clean up 
+      # - name: Cleanup
+      #   run: make clean
