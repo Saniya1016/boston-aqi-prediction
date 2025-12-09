@@ -154,6 +154,68 @@ Monthly time-series reveal:
 
 <img src="Lola\Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="400"/> 
 
+# AQI Visualizations
+
+To understand long-term air-quality behavior in Boston, we generated descriptive plots summarizing distribution, seasonality, and pollutant-weather interactions. These insights helped guide feature engineering and model selection.
+
+## Distribution of Daily AQI
+
+AQI is right-skewed, with most days between 20–50 and rare high-pollution spikes above 100.
+
+<img src="visualizations/AQI/Distribution_of_daily_AQI.png" width="500"/>
+
+<img src="visualizations/AQI/aqi_boxplot.png" width="500"/>
+
+The boxplot highlights frequent mild outliers and occasional extreme events.
+
+<img src="visualizations/AQI/aqi_over_time.png" width="800"/>
+
+Long-term trends show high daily variability, seasonal cycles, and notable wildfire-driven spikes.
+
+<img src="visualizations/AQI/Avg_aqi_month.png" width="500"/>
+
+AQI increases during summer ozone season and drops in fall.
+
+<img src="visualizations/AQI/aqi_by_day_of_week.png" width="800"/>
+AQI does not show a strong weekday pattern but exhibits slightly higher weekend variability
+
+<img src="visualizations/AQI/aqi_by_season.png" width="800"/>
+
+Seasonal differences are distinct:
+
+- Winter particulate
+
+- Summer ozone
+
+- Cleaner spring/fall shoulders
+
+<img src="visualizations/AQI/correlation_heatmap.png" width="900"/>
+
+AQI correlates most strongly with PM2.5, O₃, and their lags.
+Weather variables alone show weak correlation, confirming the need for multi-modal features.
+
+<img src="visualizations/AQI/feature_correlation.png" width="900"/>
+
+This ranking highlights the linear importance of pollutants and lagged AQI features.
+
+<img src="visualizations/AQI/aqi_kmeans.png" width="600"/>
+
+K-Means clustering on pollutant + weather features reveals four environmental regimes:
+
+- **Cluster 0**:** Summer high-ozone
+
+- **Cluster 1:** Moderate baseline
+
+- **Cluster 2:** Winter particulate buildup
+
+- **Cluster 3:** Clean/windy days
+
+PCA is used only for visualization.
+
+<img src="visualizations/AQI/aqi_pollution_distribution.png" width="600"/>
+
+Each regime corresponds to distinct AQI distributions, reinforcing nonlinear environmental structure.
+
 # Clustering Analysis: Nonlinear Environmental Structure
 
 Linear correlations underestimated the true relationships.
@@ -433,7 +495,7 @@ Finally, a **Classification Model** was developed, recognizing that a user often
 
 <img src="visualizations\pollen model images\xgboost_feature_importance.png" width="400"/> 
 
-3. Two-Stage Spike Model
+## Two-Stage Spike Model
 
 (Classifier → Spike Regressor + Non-Spike Regressor)
 
