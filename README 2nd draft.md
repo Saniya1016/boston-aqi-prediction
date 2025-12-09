@@ -367,13 +367,35 @@ We implemented three non-linear models, each capturing different aspects.
 
 - Underpredicts extreme spikes (biological events not captured in weather alone)
 
-- Most stable generalization across 2023–2024 test set
+- Greater stable generalization across 2023–2024 test set
 
 <img src="visualizations\pollen model images\lightgbm_actual_vs_pred.png" width="400"/> 
 
 <img src="visualizations\pollen model images\lightgbm_residuals.png" width="400"/> 
 
 <img src="visualizations\pollen model images\lightgbm_timeseries.png" width="400"/> 
+
+## LightGBM Regressor with Log Scaling on Pollen (Best Overall Model)
+### Performance
+
+- MAE: 83.97
+
+- RMSE: 224.1
+
+- R²: 0.432
+
+### Interpretation
+- Learns smooth seasonal and short-term pollen movements
+
+- Underpredicts extreme spikes to a lesser extentent, but still significant
+
+- Most stable generalization across 2023–2024 test set
+
+<img src="visualizations/pollen model images/lightgbm_log_actual_vs_pred.png.png" width="400"/> 
+
+<img src="visualizations/pollen model images/lightgbm_log_residuals.png" width="400"/> 
+
+<img src="visualizations/pollen model images/lightgbm_log_actual_vs_pred.png.png" width="400"/> 
 
 ## XGBoost Regressor
 
@@ -427,6 +449,40 @@ Accurately distinguishes spike vs. non-spike conditions.
 <img src="visualizations\pollen model images\spike_model_residuals.png" width="400"/> 
 
 <img src="visualizations\pollen model images\spike_model_timeseries.png" width="400"/> 
+
+## Classification Model
+
+### Performance 
+
+**Tree Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.75 | 260 |
+| **macro avg** | 0.53 | 0.54 | 0.53 | 260 |
+| **weighted avg** | 0.76 | 0.75 | 0.76 | 260 |
+
+**Grass Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.75 | 260 |
+| **macro avg** | 0.51 | 0.54 | 0.52 | 260 |
+| **weighted avg** | 0.76 | 0.75 | 0.75 | 260 |
+
+**Weed Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.77 | 260 |
+| **macro avg** | 0.50 | 0.50 | 0.50 | 260 |
+| **weighted avg** | 0.78 | 0.77 | 0.78 | 260 |
+
+### Interpretation
+- Predicts pollen in a more user-friendly way
+
+- Reasonable accuracy
+
+- Poor F1 score and support for higher classes 
+
+<img src="visualizations/pollen model images/classification_actual_vs_pred.png.png" width="400"/> 
 
 # Model Comparison
 
