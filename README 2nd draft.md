@@ -160,7 +160,7 @@ To understand long-term air-quality behavior in Boston, we generated descriptive
 
 AQI is right-skewed, with most days between 20–50 and rare high-pollution spikes above 100.
 
-<img src="visualizations/AQI/Distribution_of_daily_AQI.png" width="500"/>
+<img src="visualizations/AQI/Distribution_of_daily_aqi.png" width="500"/>
 
 <img src="visualizations/AQI/aqi_boxplot.png" width="500"/>
 
