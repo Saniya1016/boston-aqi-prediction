@@ -1,0 +1,72 @@
+name: Python CI with Jupyter & Streamlit
+
+# Trigger the workflow on pushes and pull requests to the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # This job executes the setup and notebook run targets
+  build-and-process:
+    # Use a standard Linux runner for speed and reliability in GitHub Actions
+    runs-on: ubuntu-latest
+    
+    # We will test against a single Python version
+    strategy:
+      matrix:
+        python-version: ['3.11'] 
+
+    steps:
+      # 1. Checkout the source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up the Python environment
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip' 
+          
+      # 3. Install Dependencies (Uses your Makefile's 'install' target)
+      # Note: On Linux, your 'make install' target will create 'venv/bin/' paths, 
+      # but the underlying commands are python -m venv and pip install, which work universally.
+      - name: Install Dependencies (make install)
+        run: make install 
+        
+      # 4. Execute the AQI Prediction Notebook
+      # This runs the 'make run-aqi-nb' target.
+      - name: Run AQI Prediction Notebook
+        run: make run-aqi-nb
+        
+      # 5. Execute the Pollen Models Notebook
+      # This runs the 'make run-pollen-nb' target.
+      - name: Run Pollen Models Notebook
+        run: make run-pollen-nb
+
+      # 6. Check for Streamlit App (Optional: Remove if you don't need to check the app itself)
+      # Since running 'make run-streamlit' starts a server, we only check if the file exists.
+      - name: Verify Streamlit App Existence
+        run: |
+          if [ -f "visualizations/Plum/script/streamlit.py" ]; then
+            echo "Streamlit app file found and ready."
+          else
+            echo "Streamlit app file NOT found at expected path."
+            exit 1
+          fi
+
+      # 7. Archive the Executed Notebooks (Optional, but useful for CI artifacts)
+      - name: Archive Executed Notebooks
+        uses: actions/upload-artifact@v4
+        with:
+          name: executed-notebooks
+          path: |
+            Models/aqi_model/aqi_predict_cts.ipynb
+            Models/pollen_models/pollen_models.ipynb
+            
+      # 8. Clean up (Removes the venv)
+     # - name: Cleanup
+     #   run: make clean
