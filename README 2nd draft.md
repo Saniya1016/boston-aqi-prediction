@@ -601,3 +601,23 @@ We frequently experienced high, but artificially inflated, $R^2$ scores, only to
 ### 3. Overly Optimistic Performance Targets
 
 A major conceptual challenge was setting an initial performance target, such as an $R^2$ of **0.75**. This proved to be highly optimistic. Forecasting complex, real-world biological and environmental phenomena—like pollen and AQI—is intrinsically difficult because these processes are affected by a countless number of variables (e.g., microclimate variations, unobserved regional transport, non-local emission events). Given our relatively limited dataset and the high stochasticity of the targets, achieving a perfect fit was, realistially, statistically infeasible and led to a necessary re-evaluation of the models' true ceiling.
+
+# Next Steps 
+If we were to continue this project, here are some next steps we would take:
+
+### 1. Dataset Expansion and Multi-Region Modeling 
+The most impactful improvement would be a **significant expansion of the dataset**, both temporally and geographically. We would consider potenitally purchasing access to
+datasets with more datapoints available as well as looking at data from other cities with similar climate classifications.
+
+### 2. Incorporation of Exogenous and Latent Environmental Drivers  
+It could be useful for us to include other environmental data, such as satellite-based aerosol and vegetation indices (e.g., NDVI, AOD), upwind wind-field transport feature, 
+or land-use and vegetation density data. These additions could help reduce the unexplained variance that currently limits predictive performance.
+
+### 3. Reframing Performance Expectations with Domain-Specific Metrics  
+Instead of relying primarily on $R^2$, future evaluations could incorporate **domain-relevant performance metrics**, such as: 
+* Classification accuracy on **health risk categories** (e.g., “Good,” “Moderate,” “Unhealthy” AQI bands)  
+* Event-based scoring for **high-pollen or pollution spike detection**  
+* Asymmetric error penalties that prioritize **false negatives** for hazardous conditions  
+
+This would align model evaluation with real-world public health decision-making.
+
