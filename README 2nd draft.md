@@ -350,7 +350,24 @@ Predicting pollen is substantially more difficult due to:
 
 - Sudden, sharp multi-day spikes
 
-We implemented three non-linear models, each capturing different aspects.
+We implemented multiple non-linear models, each capturing different aspects.
+
+### Model Process
+The initial modeling attempt began with **Linear Regression**, which yielded a very low $R^2$ value, confirming the highly nonlinear nature of pollen dynamics.
+
+From there, we transitioned to tree-based methods:
+
+* **Random Forest Regressor:** Even with extensive hyperparameter tuning, performance capped out around $R^2 \approx 0.30 - 0.35$. This limitation was partly attributed to our restricted dataset size ($\approx 2,000$ data points).
+* **XGBoost Regressor:** This model was implemented next but proved to be computationally slow and continued to struggle specifically with predicting the sharp pollen **spikes**.
+* **LightGBM Regressor:** We shifted to LightGBM, which offered slightly better performance, ran quicker, and facilitated faster hyperparameter tuning.
+
+The persistent issue of uncaptured spikes led to an experiment with data transformation:
+
+* **Log Transformation:** Applying a **log transformation** to the total pollen count yielded a slightly better $R^2$, helping the model better fit the wide range of values.
+
+Finally, a **Classification Model** was developed, recognizing that a user often consumes pollen information categorically (e.g., "High," "Moderate"). While the overall accuracy was reasonable (in the 70s), the **macro F1 score was stuck in the 50s** due to the scarcity of data points in the "very high" and "high" classes.
+
+
 
 ## LightGBM Regressor (Best Overall Model)
 ### Performance
@@ -499,3 +516,30 @@ Accurately distinguishes spike vs. non-spike conditions.
 - **Spike model** is valuable for distinguishing hazard days.
 
 <img src="visualizations\Saniya\scripts\plots\aqi\full_vs_simple_model.png" width="400"/> 
+
+# Difficulties and Challenges
+
+Throughout the project, we encountered several intrinsic and methodological challenges that affected the final model performance and development process.
+
+### 1. Data Scarcity and Performance Ceiling
+A primary limitation was the **small size of our datasets** relative to the complexity of the environmental phenomena we were modeling:
+
+* **AQI Dataset:** Approximately 4,000 daily observations.
+* **Pollen Dataset:** Approximately 2,000 daily observations.
+
+This limited sample size placed an **intrinsic ceiling** on the predictive power of our models. Accurately capturing the complex, nonlinear interactions between weather, temporal cycles, and environmental factors requires substantial historical data.
+
+The decision to focus exclusively on the **Boston area** prevented us from accessing more data, but it strategically allowed us to **avoid location-specific confounding variables** that would arise from combining data across different climate zones or regulatory environments.
+
+### 2. The Challenge of Data Leakage
+
+**Data leakage** was an ever-present and persistent problem, especially given our reliance on **lagged and rolling features** for time-series forecasting. 
+
+It was technically difficult to track all constructed features and ensure strict adherence to the forecasting setup (i.e., using *only* past information to predict the present day).
+
+We frequently experienced high, but artificially inflated, $R^2$ scores, only to find the cause was a form of **target or feature leakage** (e.g., accidentally using a same-day rolling average or a pollutant interaction feature that included the current day's target information). This required rigorous inspection and redesign of the feature engineering pipeline to maintain the integrity of our time-series validation.
+
+
+### 3. Overly Optimistic Performance Targets
+
+A major conceptual challenge was setting an initial performance target, such as an $R^2$ of **0.75**. This proved to be highly optimistic. Forecasting complex, real-world biological and environmental phenomena—like pollen and AQI—is intrinsically difficult because these processes are affected by a countless number of variables (e.g., microclimate variations, unobserved regional transport, non-local emission events). Given our relatively limited dataset and the high stochasticity of the targets, achieving a perfect fit was, realistially, statistically infeasible and led to a necessary re-evaluation of the models' true ceiling.
