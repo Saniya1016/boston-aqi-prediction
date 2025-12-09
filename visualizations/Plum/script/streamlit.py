@@ -9,9 +9,7 @@ import importlib
 
 st.set_page_config(page_title="Boston AQI & Pollen Dashboard", layout="wide")
 
-# =========================================================
 # Data Loader
-# =========================================================
 
 def safe_read_open_meteo(path):
     # Skip the metadata block at the top
@@ -48,9 +46,6 @@ def load_data():
 # Load sanitized data
 data = load_data()
 
-# =========================================================
-# Model Registry — teammates add their models here
-# =========================================================
 MODEL_REGISTRY = {
     "Linear Regression AQI": {
         "module": "models.linear_regression",
@@ -91,18 +86,14 @@ def load_model(model_info):
     module = importlib.import_module(model_info["module"])
     return getattr(module, model_info["class"])()
 
-# =========================================================
 # Sidebar Navigation
-# =========================================================
 st.sidebar.title("🔬 Model Dashboard")
 page = st.sidebar.radio(
     "Select page:",
     ["Home", "Models"],
 )
 
-# =========================================================
 # Home Page
-# =========================================================
 if page == "Home":
     st.title("🌤️ Boston AQI & Pollen Prediction Dashboard")
 
@@ -121,9 +112,7 @@ if page == "Home":
     with tabs[2]:
         st.dataframe(data["pollen"].head())
 
-# =========================================================
 # Models Page
-# =========================================================
 if page == "Models":
 
     st.title("🤖 Model Explorer")
@@ -142,9 +131,7 @@ if page == "Models":
     # Generate predictions
     predictions = model_instance.predict(data)
 
-    # ---------------------------------------------------------
-    # 1. Visualization Section (Moved to Top & Made Interactive)
-    # ---------------------------------------------------------
+    # Visualization Section (Moved to Top & Made Interactive)
     st.header("📊 Interactive Visualization")
 
     # Check if predictions df has the expected structure
@@ -203,9 +190,7 @@ if page == "Models":
         fig = model_instance.plot_results(data)
         st.plotly_chart(fig, width='stretch')
 
-    # ---------------------------------------------------------
-    # 2. Predictions Data Section
-    # ---------------------------------------------------------
+    # Predictions Data Section
     st.header("📈 Prediction Data")
     st.dataframe(predictions.head())
     

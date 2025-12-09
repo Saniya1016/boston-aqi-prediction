@@ -11,22 +11,20 @@ https://youtu.be/GTi8yNdaAHU
 
 ## Final Report Video
 
-<br></br>
 
-## Overview
+# Introduction
 
 Air quality and pollen levels play a central role in public health, especially for individuals with asthma, allergies, or respiratory conditions. In Boston, these conditions fluctuate due to complex interactions between meteorology, seasonality, and biological cycles.
 
-This project builds a full data-science pipeline to:
+To address this, we restricted our scope to the Boston area—avoiding location-specific confounding variables like varying climate zones, and built a full data-science pipeline to:
 
 - Predict daily AQI values using past AQI and weather data.
 
 - Predict total pollen counts using weather and temporal features.
 
-- Understand nonlinear environmental patterns using clustering and exploratory visualizations.
+- Understand nonlinear environmental patterns using clustering and exploratory visualizations, as initial linear models proved insufficient for capturing these dynamic regimes.
 
-The project incorporates data ingestion, cleaning, feature engineering, exploratory visualization, clustering analysis, and multiple machine-learning models, resulting in an interpretable and reproducible forecasting framework.
-<br></br>
+The project incorporates data ingestion, cleaning, feature engineering, clustering analysis, and multiple machine-learning models, resulting in an interpretable and reproducible forecasting framework.
 
 ## Datasets
 
