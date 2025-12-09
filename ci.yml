@@ -1,6 +1,5 @@
 name: Python CI with Jupyter & Streamlit
 
-# Trigger the workflow on pushes and pull requests to the main branch
 on:
   push:
     branches: [ main ]
@@ -9,46 +8,41 @@ on:
   workflow_dispatch:
 
 jobs:
-  # This job executes the setup and notebook run targets
   build-and-process:
-    # Use a standard Linux runner for speed and reliability in GitHub Actions
     runs-on: ubuntu-latest
     
-    # We will test against a single Python version
     strategy:
       matrix:
         python-version: ['3.11'] 
 
     steps:
-      # 1. Checkout the source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up the Python environment
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' 
           
-      # 3. Install Dependencies (Uses your Makefile's 'install' target)
-      # Note: On Linux, your 'make install' target will create 'venv/bin/' paths, 
-      # but the underlying commands are python -m venv and pip install, which work universally.
+      # 1. Install Dependencies (USING WORKAROUND to override broken paths)
+      # This explicitly tells the Makefile to use the 'bin' path instead of 'Scripts'
       - name: Install Dependencies (make install)
-        run: make install 
+        run: |
+          make install \
+            PYTHON=./venv/bin/python \
+            PIP=./venv/bin/pip \
+            JUPYTER=./venv/bin/jupyter
         
-      # 4. Execute the AQI Prediction Notebook
-      # This runs the 'make run-aqi-nb' target.
+      # 2. Execute the AQI Prediction Notebook (Also needs the overrides)
       - name: Run AQI Prediction Notebook
-        run: make run-aqi-nb
-        
-      # 5. Execute the Pollen Models Notebook
-      # This runs the 'make run-pollen-nb' target.
-      - name: Run Pollen Models Notebook
-        run: make run-pollen-nb
+        run: make run-aqI-nb JUPYTER=./venv/bin/jupyter
 
-      # 6. Check for Streamlit App (Optional: Remove if you don't need to check the app itself)
-      # Since running 'make run-streamlit' starts a server, we only check if the file exists.
+      # 3. Execute the Pollen Models Notebook (Also needs the overrides)
+      - name: Run Pollen Models Notebook
+        run: make run-pollen-nb JUPYTER=./venv/bin/jupyter
+
+      # 4. Verify Streamlit App Existence
       - name: Verify Streamlit App Existence
         run: |
           if [ -f "visualizations/Plum/script/streamlit.py" ]; then
@@ -58,7 +52,7 @@ jobs:
             exit 1
           fi
 
-      # 7. Archive the Executed Notebooks (Optional, but useful for CI artifacts)
+      # 5. Archive the Executed Notebooks for verification
       - name: Archive Executed Notebooks
         uses: actions/upload-artifact@v4
         with:
@@ -66,7 +60,3 @@ jobs:
           path: |
             Models/aqi_model/aqi_predict_cts.ipynb
             Models/pollen_models/pollen_models.ipynb
-            
-      # 8. Clean up (Removes the venv)
-     # - name: Cleanup
-     #   run: make clean
