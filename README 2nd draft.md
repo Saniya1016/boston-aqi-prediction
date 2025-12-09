@@ -356,7 +356,9 @@ We implemented three non-linear models, each capturing different aspects.
 ### Performance
 
 | MAE  | 84.3  |
+
 | RMSE | 238.3 |
+
 | R²   | 0.357 |
 
 ### Interpretation
