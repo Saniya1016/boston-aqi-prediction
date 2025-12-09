@@ -30,7 +30,7 @@ def load_data():
     pollen = pd.read_csv(base / "EPHT_Pollen_Data.csv")
     weather = safe_read_open_meteo(base / "boston-weather-data(open_meteo).csv")
 
-    # ---- Sanitize datetime columns globally ----
+    # Sanitize datetime columns globally
     for df in [pollutants, pollen, weather]:
         for col in df.columns:
             if "date" in col.lower() or "time" in col.lower():
