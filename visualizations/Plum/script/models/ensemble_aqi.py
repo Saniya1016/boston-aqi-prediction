@@ -138,18 +138,20 @@ class EnsembleAQI:
             fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
             return fig
 
+        # UPDATED: 2 rows, 1 col
         fig = make_subplots(
-            rows=1, cols=2,
+            rows=2, cols=1,
             subplot_titles=(
                 f"Ensemble Model (R²={self.metrics['R2']:.2f})",
                 "Actual vs Predicted AQI Over Time"
-            )
+            ),
+            vertical_spacing=0.15
         )
 
         y_test = self.test_data['AQI_Observed']
         preds = self.test_data['AQI_Predicted']
 
-        # Plot 1: Actual vs Predicted
+        # Plot 1: Actual vs Predicted (Row 1)
         fig.add_trace(
             go.Scatter(x=y_test, y=preds, mode='markers', name="Predictions", marker=dict(color='purple', opacity=0.6, size=5)),
             row=1, col=1
@@ -161,15 +163,16 @@ class EnsembleAQI:
             row=1, col=1
         )
 
-        # Plot 2: Time Series
+        # Plot 2: Time Series (Row 2)
         fig.add_trace(
             go.Scatter(x=self.test_data['date'], y=y_test, mode='lines', name="Actual", line=dict(width=1.5, color='gray')),
-            row=1, col=2
+            row=2, col=1
         )
         fig.add_trace(
             go.Scatter(x=self.test_data['date'], y=preds, mode='lines', name="Ensemble Prediction", line=dict(width=1.5, color='purple')),
-            row=1, col=2
+            row=2, col=1
         )
 
-        fig.update_layout(template="plotly_white", showlegend=False)
+        # UPDATED: showlegend=True, height=900
+        fig.update_layout(template="plotly_white", showlegend=True, height=900)
         return fig
