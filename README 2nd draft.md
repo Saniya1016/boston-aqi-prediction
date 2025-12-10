@@ -11,6 +11,7 @@ https://youtu.be/GTi8yNdaAHU
 
 ## Final Report Video
 
+<br></br>
 
 # Introduction
 **What Is This Project?:**  
@@ -25,6 +26,7 @@ https://youtu.be/GTi8yNdaAHU
 **Why Boston?:**  
     We made the strategic decision to focus exclusively on the Boston area. While this limited our total data volume, it allowed us to avoid location-specific confounding variables that would arise from combining data across different climate zones or regulatory environments, ensuring our model learned local signals rather than geographic noise.
 
+<br></br>
 
 # 🚀 Build & Run the Project (via Makefile)
 
@@ -115,6 +117,8 @@ http://localhost:8501
 ```
 ---
 
+<br></br>
+
 ## Datasets
 
 We combined three independently sourced datasets:
@@ -128,6 +132,8 @@ Pollutants + AQI | U.S. EPA   | PM2.5, O3, NO2, CO, SO2 and computed AQI
 The pollen–weather merged dataset contains over 900 daily samples with consistent timestamps and unified variable naming. 
 
 The AQI dataset (used in our air-quality forecasting model) contains 5,844 daily observations from 2009–2024.
+
+<br></br>
 
 ## Data Processing
 
@@ -187,6 +193,8 @@ This enables spike-specific modeling.
 
 This reflects true forecasting (future unseen data).
 
+<br></br>
+
 # Exploratory Data Analysis
 ## Distributions & Missingness
 
@@ -240,6 +248,8 @@ Monthly time-series reveal:
 <img src="visualizations/Lola/Plots (Monthly)\by fours\Tree_monthly_timeseries.png" width="400"/>
 
 <img src="visualizations/Lola/Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="400"/> 
+
+<br></br>
 
 # AQI Visualizations
 
@@ -308,6 +318,8 @@ Each regime corresponds to distinct AQI distributions, reinforcing nonlinear env
 Linear correlations underestimated the true relationships.
 K-Means clustering uncovered distinct environmental regimes.
 
+<br></br>
+
 ### Weather → Pollen Clusters
 
 Using k = 17:
@@ -359,6 +371,8 @@ States emerge such as:
 <img src="visualizations\Anna\aqi_pollen_kmeans_12_date.png.png" width="400"/> 
 
 Environmental behavior is strongly non-linear and regime-based, not linearly correlated. This justifies nonlinear ML modeling.
+
+<br></br>
 
 # AQI Prediction Model
 
@@ -486,6 +500,8 @@ This suggests that, even if exact AQI is imperfect, the model is useful for high
 <img src="visualizations\AQI\Residuals_over_time.png" width="400"/> 
 <img src="visualizations\AQI\Res_vs_actual.png" width="400"/> 
 <img src="visualizations\AQI\Top_features.png" width="400"/> 
+
+<br></br>
 
 # Pollen Prediction Models
 
@@ -662,6 +678,8 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 - **Spike model** is valuable for distinguishing hazard days. 
 
+<br></br>
+
 # Difficulties and Challenges
 
 Throughout the project, we encountered several intrinsic and methodological challenges that affected the final model performance and development process.
@@ -688,6 +706,8 @@ We frequently experienced high, but artificially inflated, $R^2$ scores, only to
 ### 3. Overly Optimistic Performance Targets
 
 A major conceptual challenge was setting an initial performance target, such as an $R^2$ of **0.75**. This proved to be highly optimistic. Forecasting complex, real-world biological and environmental phenomena—like pollen and AQI—is intrinsically difficult because these processes are affected by a countless number of variables (e.g., microclimate variations, unobserved regional transport, non-local emission events). Given our relatively limited dataset and the high stochasticity of the targets, achieving a perfect fit was, realistially, statistically infeasible and led to a necessary re-evaluation of the models' true ceiling.
+
+<br></br>
 
 # Next Steps 
 If we were to continue this project, here are some next steps we would take:
