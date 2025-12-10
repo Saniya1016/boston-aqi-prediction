@@ -22,13 +22,21 @@ def safe_read_open_meteo(path):
     return df
 
 
+ROOT = Path(__file__).resolve().parent
+
+while ROOT != ROOT.parent:
+    if (ROOT / "Data").exists():
+        break
+    ROOT = ROOT.parent
+
+DATA_DIR = ROOT / "Data"
+
 @st.cache_data
 def load_data():
-    base = Path("Data")
 
-    pollutants = pd.read_csv(base / "boston_pollutants.csv")
-    pollen = pd.read_csv(base / "boston_pollen.csv")
-    weather = safe_read_open_meteo(base / "boston_weather.csv")
+    pollutants = pd.read_csv(DATA_DIR / "boston_pollutants.csv")
+    pollen = pd.read_csv(DATA_DIR / "boston_pollen.csv")
+    weather = safe_read_open_meteo(DATA_DIR / "boston_weather.csv")
 
     # Sanitize datetime columns globally
     for df in [pollutants, pollen, weather]:
@@ -78,6 +86,10 @@ MODEL_REGISTRY = {
     "XGBoost Pollen": {
         "module": "models.xgboost_pollen",
         "class": "XGBoostPollen"
+    },
+    "Linear Regression Pollen": {
+        "module": "models.linear_pollen",
+        "class": "LinearPollen"
     }
 }
 

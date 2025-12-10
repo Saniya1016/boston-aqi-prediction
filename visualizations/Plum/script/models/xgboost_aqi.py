@@ -1,3 +1,4 @@
+# file: xgboost_aqi.py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -63,7 +64,6 @@ class XGBoostAQI:
                 df[f"{base}_roll7"] = df[old].shift(1).rolling(7).mean()
 
         # --- Interaction features ---
-        # Note: These rely on the lag columns created above
         if "PM2.5_lag1" in df.columns and "wind_lag1" in df.columns:
             df["PM25_wind"] = df["PM2.5_lag1"] * df["wind_lag1"]
         if "O3_lag1" in df.columns and "temp_lag1" in df.columns:
@@ -89,22 +89,18 @@ class XGBoostAQI:
         # 1. Merge Data
         pollutants = data_dict["pollutants"].copy()
         weather = data_dict["weather"].copy()
-        
-        # Ensure date consistency
         pollutants['date'] = pd.to_datetime(pollutants['date'])
         
-        # Handle weather date column (sometimes called 'time' in OpenMeteo)
         weather_date_col = 'time' if 'time' in weather.columns else 'date'
         weather[weather_date_col] = pd.to_datetime(weather[weather_date_col])
         weather = weather.rename(columns={weather_date_col: 'date'})
         
-        # Merge
         df = pd.merge(pollutants, weather, on='date', how='inner')
 
         # 2. Feature Engineering
         df_featured = self._build_features(df)
 
-        # 3. Define Features used in Training
+        # 3. Define Features
         exclude = [
             "date", "time", "date_local", "num_pollutants_available",
             "AQI", "AQI_Category", "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2",
@@ -115,8 +111,7 @@ class XGBoostAQI:
         ]
         feature_cols = [c for c in df_featured.columns if c not in exclude]
         
-        # 4. Chronological Split (Train+Val vs Test)
-        # Strategy from notebook: Test = Last 1 year, Train = Everything before
+        # 4. Split
         latest_date = df_featured['date'].max()
         test_start = latest_date - pd.DateOffset(years=1)
         
@@ -125,7 +120,6 @@ class XGBoostAQI:
         
         X_train = train_val_df[feature_cols]
         y_train = train_val_df["AQI"]
-        
         X_test = test_df[feature_cols]
         y_test = test_df["AQI"]
 
@@ -136,12 +130,10 @@ class XGBoostAQI:
         # 6. Predict
         preds = self.model.predict(X_test)
         
-        # Save for plotting
         self.test_data = test_df.copy()
         self.test_data['predicted_AQI'] = preds
         self.test_data['actual_AQI'] = y_test
         
-        # Calculate metrics
         self.metrics['MAE'] = mean_absolute_error(y_test, preds)
         self.metrics['RMSE'] = np.sqrt(mean_squared_error(y_test, preds))
         self.metrics['R2'] = r2_score(y_test, preds)
@@ -156,12 +148,11 @@ class XGBoostAQI:
         ax1 = fig.add_subplot(121)
         ax2 = fig.add_subplot(122)
 
-        # Plot 1: Actual vs Predicted Scatter
+        # Plot 1: Actual vs Predicted
         y_test = self.test_data['actual_AQI']
         preds = self.test_data['predicted_AQI']
         
         ax1.scatter(y_test, preds, alpha=0.5, color='blue', s=10)
-        # Diagonal line
         min_val = min(y_test.min(), preds.min())
         max_val = max(y_test.max(), preds.max())
         ax1.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
