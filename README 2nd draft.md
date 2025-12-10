@@ -15,10 +15,10 @@ https://youtu.be/GTi8yNdaAHU
 
 # Introduction
 **What Is This Project?:**  
-    Is This project establishes a full data-science pipeline designed to predict daily Air Quality Index (AQI) values and total pollen counts. By integrating data ingestion, cleaning, feature engineering, and multiple machine-learning models, we created an interpretable and reproducible forecasting framework that analyzes the interactions between meteorology, seasonality, and biological cycles.
+    This project establishes a full data-science pipeline designed to predict daily Air Quality Index (AQI) values and total pollen counts. By integrating data ingestion, cleaning, feature engineering, and multiple machine-learning models, we created an interpretable and reproducible forecasting framework that analyzes the interactions between meteorology, seasonality, and biological cycles.
 
 **Target Audience & Broader Use Cases:**  
-    This research is centered on public health, specifically designed to benefit individuals with asthma, allergies, or respiratory conditions. Beyond academic modeling, this framework serves a practical use case: providing actionable high-level messaging, such as whether air quality will remain "Good" or shift to "Moderate/Unhealthy". This allows vulnerable populations to make informed daily decisions regarding medication timing and outdoor exposure.
+    This research is centered on public health, specifically designed to benefit individuals with asthma, allergies, or respiratory conditions. Beyond academic modeling, this framework serves a practical use case: providing actionable high-level messaging in our models that predict a class of air quality or pollen count, and providing numerical values for a more specific estimate. This would allow vulnerable populations to make informed daily decisions regarding medication timing and outdoor exposure.
 
 **Project Goals and Rationale:**  
     Our primary goals were to predict environmental metrics using past weather data and to understand nonlinear environmental patterns using clustering. We prioritized this approach because initial investigations revealed that environmental behavior is "strongly non-linear and regime-based". Consequently, we focused on developing non-linear ML models (such as LightGBM) capable of capturing complex seasonality and, crucially, identifying hazardous spike days that simple linear models often miss.
@@ -567,7 +567,7 @@ Finally, a **Classification Model** was developed, recognizing that a user often
 ### Interpretation
 - Learns smooth seasonal and short-term pollen movements
 
-- Underpredicts extreme spikes to a lesser extentent, but still significant
+- Underpredicts extreme spikes to a lesser extent, but still significant
 
 - Most stable generalization across 2023–2024 test set
 
