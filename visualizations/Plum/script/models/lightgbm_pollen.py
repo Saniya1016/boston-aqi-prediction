@@ -1,28 +1,30 @@
+# file: lightgbm_pollen.py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import lightgbm as lgb
+from lightgbm import LGBMRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import plotly.graph_objects as go
 
 class LightGBMPollen:
     def __init__(self):
-        self.model = lgb.LGBMRegressor(
-            n_estimators=1000,
+        self.model = LGBMRegressor(
+            n_estimators=1000, 
             learning_rate=0.05,
-            random_state=42
+            random_state=42,
+            n_jobs=-1
         )
         self.trained = False
-        self.y_test = None
-        self.y_pred = None
+        self.y_test_real = None
+        self.y_pred_real = None
         self.metrics = {}
 
     def short_description(self):
-        return "LightGBM Regressor (Notebook Setup). Features: Lags, Rolling, Seasonality, Weighted Pollutants. Uses Early Stopping."
+        return "LightGBM Regressor for Pollen (Log-transformed target)."
 
     def _engineer_features(self, data_dict):
-        # Replicating the exact setup from the notebook
+        # Standard robust pollen features
         w = data_dict["weather"].copy()
         p = data_dict["pollutants"].copy()
         pol = data_dict["pollen"].copy()
@@ -36,16 +38,43 @@ class LightGBMPollen:
 
         target = "Total_Pollen"
         df["day_of_year"] = df["Date"].dt.dayofyear
-        
-        # Standard Lags
         df["lag1"] = df[target].shift(1)
         df["lag2"] = df[target].shift(2)
         df["lag3"] = df[target].shift(3)
         df["pollen_3day"] = df[target].rolling(3).mean()
         df["pollen_7day"] = df[target].rolling(7).mean()
 
-        # Spike detection (Notebook logic)
-        df["is_spike"] = ((df[target] - df["pollen_3day"]) > df["pollen_3day"].quantile(0.75)).astype(int)
+        threshold = df[target].mean() + df[target].std()
+        df["is_spike"] = (df[target] > threshold).astype(int)
+
+        df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
+        df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
+
+        weights = np.array([0.1, 0.3, 0.6])
+        rolling_cols = [
+            "temperature_2m_mean (°C)", "apparent_temperature_mean (°C)",
+            "PM2.5", "O3", "CO", "NO2", "SO2",
+            "AQI", "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2"
+        ]
+        rolling_cols = [c for c in rolling_cols if c in df.columns]
+
+        for col in rolling_cols:
+            df[f"{col}_weighted3"] = (
+                df[col].shift(2).bfill() * weights[0] +
+                df[col].shift(1).bfill() * weights[1] +
+                df[col] * weights[2]
+            )
+            for lag in range(1, 4):
+                df[f"{col}_lag{lag}"] = df[col].shift(lag).bfill()
+
+        interaction_pairs = [
+            ("temperature_2m_mean (°C)", "AQI"),
+            ("apparent_temperature_mean (°C)", "PM2.5"),
+            ("wind_speed_10m_max (km/h)", "O3"),
+        ]
+        for col1, col2 in interaction_pairs:
+            if col1 in df.columns and col2 in df.columns:
+                df[f"{col1}_x_{col2}"] = df[col1] * df[col2]
 
         df = df.dropna()
         return df
@@ -57,78 +86,63 @@ class LightGBMPollen:
         remove_cols = ["Date", "time", "date", "Month", "Year", "Day", "Week", 
                        "Tree_Level", "Grass_Level", "Weed_Level", "Ragweed_Level", 
                        "AQI_Category", "weather_code (wmo code)", "OBJECTID",
-                       "Tree", "Grass", "Weed", "Ragweed", target]
+                       "Tree", "Grass", "Weed", "Ragweed", "day_of_year", target]
         
-        # Select numeric features
         feature_cols = [c for c in df.columns if c not in remove_cols and df[c].dtype in ['float64', 'int64', 'int32']]
         
         X = df[feature_cols]
-        y = df[target]
-
-        # LightGBM crashes with special characters in column names like (°)
-        # We sanitize them here
-        X.columns = ["".join(c if c.isalnum() else "_" for c in col) for col in X.columns]
+        y_log = np.log1p(df[target])
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+            X, y_log, test_size=0.2, random_state=42
         )
 
-        # Fit with Early Stopping (Notebook logic)
-        self.model.fit(
-            X_train, y_train,
-            eval_set=[(X_test, y_test)],
-            eval_metric='rmse',
-            callbacks=[lgb.early_stopping(50)]
-        )
+        self.model.fit(X_train, y_train)
         self.trained = True
-        
-        self.y_test = y_test
-        self.y_pred = self.model.predict(X_test)
 
-        mae = mean_absolute_error(self.y_test, self.y_pred)
-        rmse = np.sqrt(mean_squared_error(self.y_test, self.y_pred))
-        r2 = r2_score(self.y_test, self.y_pred)
+        y_pred_log = self.model.predict(X_test)
+        self.y_pred_real = np.expm1(y_pred_log)
+        self.y_test_real = np.expm1(y_test)
+
+        mae = mean_absolute_error(self.y_test_real, self.y_pred_real)
+        rmse = np.sqrt(mean_squared_error(self.y_test_real, self.y_pred_real))
+        r2 = r2_score(self.y_test_real, self.y_pred_real)
         self.metrics = {"MAE": mae, "RMSE": rmse, "R2": r2}
 
         return pd.DataFrame({
-            "Actual Pollen": self.y_test.values,
-            "Predicted Pollen": self.y_pred
+            "Actual Pollen": self.y_test_real.values,
+            "Predicted Pollen": self.y_pred_real
         })
 
-    def plot_results(self, data_dict=None):
+    def plot_results(self, data_dict):
         if not self.trained:
             fig = go.Figure()
             fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
             return fig
 
-        actual = self.y_test
-        predicted = self.y_pred
-
         fig = go.Figure()
-
         fig.add_trace(go.Scatter(
-            x=actual,
-            y=predicted,
+            x=self.y_test_real,
+            y=self.y_pred_real,
             mode='markers',
-            name='Predictions',
-            opacity=0.6
+            name='Test Predictions',
+            opacity=0.6,
+            marker=dict(color='orange')
         ))
 
-        line_max = max(actual.max(), predicted.max())
-
+        line_max = max(self.y_test_real.max(), self.y_pred_real.max())
         fig.add_trace(go.Scatter(
-            x=[0, line_max],
+            x=[0, line_max], 
             y=[0, line_max],
             mode='lines',
             name='Perfect Fit',
-            line=dict(dash='dash', color='white')
+            line=dict(dash='dash', color='red')
         ))
 
         fig.update_layout(
-            title=f"LightGBM Results<br>R²: {self.metrics['R2']:.3f} | RMSE: {self.metrics['RMSE']:.1f}",
+            title=f"LightGBM (Log-Target)<br>R²: {self.metrics['R2']:.3f} | MAE: {self.metrics['MAE']:.1f}",
             xaxis_title="Actual Total Pollen",
             yaxis_title="Predicted Total Pollen",
-            template="plotly_white",
+            template="plotly_white"
         )
-
         return fig

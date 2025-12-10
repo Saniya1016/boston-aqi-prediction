@@ -1,16 +1,16 @@
+# file: ensemble_aqi.py
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
 
 class EnsembleAQI:
     def __init__(self):
-        # Initialize all three models
+        # Initialize the three component models with tuned hyperparameters
         self.xgb = XGBRegressor(
             objective="reg:squarederror", random_state=42, n_jobs=-1,
             n_estimators=800, max_depth=4, learning_rate=0.03,
@@ -33,9 +33,12 @@ class EnsembleAQI:
         return "Ensemble (Average) of XGBoost, LightGBM, and Random Forest models."
 
     def _build_features(self, df):
+        """
+        Standardized feature engineering matching the single AQI models.
+        """
         df = df.sort_values("date").copy()
         
-        # AQI Lags
+        # --- AQI Lags & Rolling ---
         df['AQI_lag_2'] = df['AQI'].shift(2)
         df['AQI_lag_3'] = df['AQI'].shift(3)
         df['AQI_roll3'] = df['AQI'].shift(1).rolling(3).mean()
@@ -43,8 +46,9 @@ class EnsembleAQI:
         df['AQI_diff_1'] = df['AQI'].shift(1) - df['AQI'].shift(2)
         df['AQI_diff_7'] = df['AQI'].shift(1) - df['AQI'].shift(7)
         
-        # Pollutants
-        for p in ["PM2.5", "O3", "CO", "NO2", "SO2"]:
+        # --- Pollutants ---
+        pollutants = ["PM2.5", "O3", "CO", "NO2", "SO2"]
+        for p in pollutants:
             if p in df.columns:
                 df[f'{p}_lag1'] = df[p].shift(1)
                 df[f'{p}_lag3'] = df[p].shift(3)
@@ -52,20 +56,27 @@ class EnsembleAQI:
                 df[f'{p}_roll3'] = df[p].shift(1).rolling(3).mean()
                 df[f'{p}_roll7'] = df[p].shift(1).rolling(7).mean()
         
-        # Weather
-        weather_map = {"temperature_2m_mean (°C)": "temp", "wind_speed_10m_max (km/h)": "wind", "precipitation_sum (mm)": "rain"}
+        # --- Weather ---
+        weather_map = {
+            "temperature_2m_mean (°C)": "temp", 
+            "wind_speed_10m_max (km/h)": "wind", 
+            "precipitation_sum (mm)": "rain"
+        }
         for old, new in weather_map.items():
             if old in df.columns:
                 df[f"{new}_lag1"] = df[old].shift(1)
                 df[f"{new}_roll3"] = df[old].shift(1).rolling(3).mean()
                 df[f"{new}_roll7"] = df[old].shift(1).rolling(7).mean()
 
-        # Interactions
-        if "PM2.5_lag1" in df.columns and "wind_lag1" in df.columns: df["PM25_wind"] = df["PM2.5_lag1"] * df["wind_lag1"]
-        if "O3_lag1" in df.columns and "temp_lag1" in df.columns: df["O3_temp"] = df["O3_lag1"] * df["temp_lag1"]
-        if "NO2_lag1" in df.columns and "wind_lag1" in df.columns: df["NO2_wind"] = df["NO2_lag1"] * df["wind_lag1"]
+        # --- Interactions ---
+        if "PM2.5_lag1" in df.columns and "wind_lag1" in df.columns: 
+            df["PM25_wind"] = df["PM2.5_lag1"] * df["wind_lag1"]
+        if "O3_lag1" in df.columns and "temp_lag1" in df.columns: 
+            df["O3_temp"] = df["O3_lag1"] * df["temp_lag1"]
+        if "NO2_lag1" in df.columns and "wind_lag1" in df.columns: 
+            df["NO2_wind"] = df["NO2_lag1"] * df["wind_lag1"]
 
-        # Time
+        # --- Time Features ---
         df["month"] = df["date"].dt.month
         df["dayofyear"] = df["date"].dt.dayofyear
         df["month_sin"] = np.sin(2*np.pi*df["month"]/12)
@@ -80,46 +91,58 @@ class EnsembleAQI:
         return df.dropna()
 
     def predict(self, data_dict):
+        # 1. Merge Data
         pollutants = data_dict["pollutants"].copy()
         weather = data_dict["weather"].copy()
         pollutants['date'] = pd.to_datetime(pollutants['date'])
+        
+        # Handle inconsistent weather date column name
         w_date = 'time' if 'time' in weather.columns else 'date'
         weather[w_date] = pd.to_datetime(weather[w_date])
         weather = weather.rename(columns={w_date: 'date'})
+        
         df = pd.merge(pollutants, weather, on='date', how='inner')
         
+        # 2. Engineer Features
         df = self._build_features(df)
 
-        exclude = ["date", "time", "date_local", "num_pollutants_available", "AQI", "AQI_Category", 
-                   "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2", "PM2.5", "O3", "CO", "NO2", "SO2",
-                   "temperature_2m_mean (°C)", "precipitation_sum (mm)", "wind_speed_10m_max (km/h)", 
-                   "wind_gusts_10m_max (km/h)", "apparent_temperature_mean (°C)", "wind_direction_10m_dominant (°)"]
+        # 3. Select Features
+        exclude = [
+            "date", "time", "date_local", "num_pollutants_available", "AQI", "AQI_Category", 
+            "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2", 
+            "PM2.5", "O3", "CO", "NO2", "SO2",
+            "temperature_2m_mean (°C)", "precipitation_sum (mm)", "wind_speed_10m_max (km/h)", 
+            "wind_gusts_10m_max (km/h)", "apparent_temperature_mean (°C)", "wind_direction_10m_dominant (°)"
+        ]
+        feature_cols = [c for c in df.columns if c not in exclude]
         
-        feats = [c for c in df.columns if c not in exclude]
-        
-        # Chronological Split
+        # 4. Chronological Split (Last 1 year as Test)
         latest = df['date'].max()
         test_start = latest - pd.DateOffset(years=1)
         
-        X_train = df[df['date'] < test_start][feats]
-        y_train = df[df['date'] < test_start]["AQI"]
-        X_test = df[df['date'] >= test_start][feats]
-        y_test = df[df['date'] >= test_start]["AQI"]
+        train_df = df[df['date'] < test_start].copy()
+        test_df = df[df['date'] >= test_start].copy()
+        
+        X_train = train_df[feature_cols]
+        y_train = train_df["AQI"]
+        X_test = test_df[feature_cols]
+        y_test = test_df["AQI"]
 
-        # Train all 3
+        # 5. Train Models
         self.xgb.fit(X_train, y_train)
         self.lgbm.fit(X_train, y_train)
         self.rf.fit(X_train, y_train)
         self.trained = True
         
-        # Predict all 3 and average
+        # 6. Predict and Average
         pred_xgb = self.xgb.predict(X_test)
         pred_lgbm = self.lgbm.predict(X_test)
         pred_rf = self.rf.predict(X_test)
         
         final_preds = (pred_xgb + pred_lgbm + pred_rf) / 3
         
-        self.test_data = df[df['date'] >= test_start].copy()
+        # 7. Store Results
+        self.test_data = test_df.copy()
         self.test_data['actual_AQI'] = y_test
         self.test_data['predicted_AQI'] = final_preds
         self.metrics['MAE'] = mean_absolute_error(y_test, final_preds)
@@ -139,50 +162,47 @@ class EnsembleAQI:
         fig = make_subplots(
             rows=1, cols=2,
             subplot_titles=(
-                f"Ensemble Model<br>MAE={self.metrics['MAE']:.2f}, R²={self.metrics['R2']:.2f}",
+                f"Ensemble Model (MAE={self.metrics['MAE']:.2f}, R²={self.metrics['R2']:.2f})",
                 "Actual vs Predicted AQI Over Time"
             )
         )
 
-        # -------------------------------
-        # SCATTER PLOT (Left)
-        # -------------------------------
+        # Plot 1: Actual vs Predicted Scatter (Left)
         fig.add_trace(
             go.Scatter(
                 x=df["actual_AQI"], 
                 y=df["predicted_AQI"],
                 mode='markers',
                 name="Predictions",
-                opacity=0.6
+                marker=dict(color='purple', opacity=0.6, size=5)
             ),
             row=1, col=1
         )
 
         # Diagonal reference line
+        min_val = min(df["actual_AQI"].min(), df["predicted_AQI"].min())
+        max_val = max(df["actual_AQI"].max(), df["predicted_AQI"].max())
         fig.add_trace(
             go.Scatter(
-                x=[0, 200],
-                y=[0, 200],
+                x=[min_val, max_val],
+                y=[min_val, max_val],
                 mode='lines',
                 name="Perfect Fit",
                 line=dict(dash='dash', color='red')
             ),
             row=1, col=1
         )
+        fig.update_xaxes(title="Actual AQI", row=1, col=1)
+        fig.update_yaxes(title="Predicted AQI", row=1, col=1)
 
-        fig.update_xaxes(title="Actual", row=1, col=1)
-        fig.update_yaxes(title="Predicted", row=1, col=1)
-
-        # -------------------------------
-        # TIME SERIES PLOT (Right)
-        # -------------------------------
+        # Plot 2: Time Series (Right)
         fig.add_trace(
             go.Scatter(
                 x=df["date"], 
                 y=df["actual_AQI"],
                 mode='lines',
                 name="Actual",
-                line=dict(width=2, color='gray')
+                line=dict(width=1.5, color='gray')
             ),
             row=1, col=2
         )
@@ -193,23 +213,26 @@ class EnsembleAQI:
                 y=df["predicted_AQI"],
                 mode='lines',
                 name="Ensemble Prediction",
-                line=dict(width=2, color='purple')
+                line=dict(width=1.5, color='purple')
             ),
             row=1, col=2
         )
-
         fig.update_xaxes(title="Date", row=1, col=2)
         fig.update_yaxes(title="AQI", row=1, col=2)
 
-        # -------------------------------
-        # Layout & Theme
-        # -------------------------------
+        # Layout settings
         fig.update_layout(
             template="plotly_white",
             hovermode="x unified",
             showlegend=True,
-            width=1200,
-            height=500
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            margin=dict(t=50)
         )
 
         return fig
