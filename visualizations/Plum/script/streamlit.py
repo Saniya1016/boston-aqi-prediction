@@ -24,11 +24,11 @@ def safe_read_open_meteo(path):
 
 @st.cache_data
 def load_data():
-    base = Path("data")
+    base = Path(__file__).resolve().parents[3] / "Data"
 
-    pollutants = pd.read_csv(base / "boston_pollutants_with_aqi_include_2024.csv")
-    pollen = pd.read_csv(base / "EPHT_Pollen_Data.csv")
-    weather = safe_read_open_meteo(base / "boston-weather-data(open_meteo).csv")
+    pollutants = pd.read_csv(base / "boston_pollutants.csv")
+    pollen = pd.read_csv(base / "boston_pollen.csv")
+    weather = safe_read_open_meteo(base / "boston_weather.csv")
 
     # Sanitize datetime columns globally
     for df in [pollutants, pollen, weather]:
