@@ -13,16 +13,16 @@ https://youtu.be/GTi8yNdaAHU
 
 
 # Introduction
-What This Project:  
+**What This Project:**  
     Is This project establishes a full data-science pipeline designed to predict daily Air Quality Index (AQI) values and total pollen counts. By integrating data ingestion, cleaning, feature engineering, and multiple machine-learning models, we created an interpretable and reproducible forecasting framework that analyzes the interactions between meteorology, seasonality, and biological cycles.
 
-Target Audience & Broader Use Cases:  
+**Target Audience & Broader Use Cases:**  
     This research is centered on public health, specifically designed to benefit individuals with asthma, allergies, or respiratory conditions. Beyond academic modeling, this framework serves a practical use case: providing actionable high-level messaging, such as whether air quality will remain "Good" or shift to "Moderate/Unhealthy". This allows vulnerable populations to make informed daily decisions regarding medication timing and outdoor exposure.
 
-Project Goals and Rationale:  
+**Project Goals and Rationale:**  
     Our primary goals were to predict environmental metrics using past weather data and to understand nonlinear environmental patterns using clustering. We prioritized this approach because initial investigations revealed that environmental behavior is "strongly non-linear and regime-based". Consequently, we focused on developing non-linear ML models (such as LightGBM) capable of capturing complex seasonality and, crucially, identifying hazardous spike days that simple linear models often miss.
 
-Why Boston?:  
+**Why Boston?:**  
     We made the strategic decision to focus exclusively on the Boston area. While this limited our total data volume, it allowed us to avoid location-specific confounding variables that would arise from combining data across different climate zones or regulatory environments, ensuring our model learned local signals rather than geographic noise.
 
 ## Datasets
@@ -570,9 +570,7 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 - **LightGBM** is the most robust and interpretable final choice.
 
-- **Spike model** is valuable for distinguishing hazard days.
-
-<img src="visualizations\Saniya\scripts\plots\aqi\full_vs_simple_model.png" width="400"/> 
+- **Spike model** is valuable for distinguishing hazard days. 
 
 # Difficulties and Challenges
 
