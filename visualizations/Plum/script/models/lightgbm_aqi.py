@@ -129,15 +129,17 @@ class LightGBMAQI:
             fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
             return fig
 
+        # UPDATED: 2 rows, 1 col
         fig = make_subplots(
-            rows=1, cols=2,
-            subplot_titles=(f"Actual vs Predicted (R²={self.metrics['R2']:.2f})", "LightGBM Time Series")
+            rows=2, cols=1,
+            subplot_titles=(f"Actual vs Predicted (R²={self.metrics['R2']:.2f})", "LightGBM Time Series"),
+            vertical_spacing=0.15
         )
 
         y_test = self.test_data['AQI_Observed']
         preds = self.test_data['AQI_Predicted']
         
-        # 1. Scatter
+        # 1. Scatter (Row 1)
         fig.add_trace(
             go.Scatter(x=y_test, y=preds, mode='markers', name='Predictions', marker=dict(color='green', opacity=0.5, size=6)),
             row=1, col=1
@@ -149,15 +151,16 @@ class LightGBMAQI:
             row=1, col=1
         )
 
-        # 2. Time Series
+        # 2. Time Series (Row 2)
         fig.add_trace(
             go.Scatter(x=self.test_data['date'], y=y_test, mode='lines', name='Actual', line=dict(color='gray', width=1)),
-            row=1, col=2
+            row=2, col=1
         )
         fig.add_trace(
             go.Scatter(x=self.test_data['date'], y=preds, mode='lines', name='Predicted', line=dict(color='green', width=2)),
-            row=1, col=2
+            row=2, col=1
         )
         
-        fig.update_layout(template="plotly_white", showlegend=False)
+        # UPDATED: showlegend=True, height=900
+        fig.update_layout(template="plotly_white", showlegend=True, height=900)
         return fig
