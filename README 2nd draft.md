@@ -13,7 +13,7 @@ https://youtu.be/GTi8yNdaAHU
 
 
 # Introduction
-**What This Project:**  
+**What Is This Project?:**  
     Is This project establishes a full data-science pipeline designed to predict daily Air Quality Index (AQI) values and total pollen counts. By integrating data ingestion, cleaning, feature engineering, and multiple machine-learning models, we created an interpretable and reproducible forecasting framework that analyzes the interactions between meteorology, seasonality, and biological cycles.
 
 **Target Audience & Broader Use Cases:**  
