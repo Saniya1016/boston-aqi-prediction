@@ -1,4 +1,4 @@
-# CS506 Project Proposal
+# CS506 Final Project
 
 **Members:**  
 Anna LaPrade - U14515609 - alaprade@bu.edu  
@@ -9,425 +9,722 @@ Aline Mukadi - U43727980 - alemuk@bu.edu
 ## Midterm Report Video 
 https://youtu.be/GTi8yNdaAHU 
 
+## Final Report Video
 
 <br></br>
 
-## Description
+# Introduction
+**What Is This Project?:**  
+    This project establishes a full data-science pipeline designed to predict daily Air Quality Index (AQI) values and total pollen counts. By integrating data ingestion, cleaning, feature engineering, and multiple machine-learning models, we created an interpretable and reproducible forecasting framework that analyzes the interactions between meteorology, seasonality, and biological cycles.
 
-Air quality plays a critical role in public health, especially for vulnerable groups such as children, the elderly, and people with asthma. The goal of this project is to build a machine learning pipeline that predicts the daily air quality category in Boston (e.g., Good, Moderate, Unhealthy) using weather and allergen (e.g., tree, grass, weed pollen) data.
+**Target Audience & Broader Use Cases:**  
+    This research is centered on public health, specifically designed to benefit individuals with asthma, allergies, or respiratory conditions. Beyond academic modeling, this framework serves a practical use case: providing actionable high-level messaging in our models that predict a class of air quality or pollen count, and providing numerical values for a more specific estimate. This would allow vulnerable populations to make informed daily decisions regarding medication timing and outdoor exposure.
 
-The project will cover the full data science lifecycle, including data collection, cleaning, feature extraction, visualization, and model training.
+**Project Goals and Rationale:**  
+    Our primary goals were to predict environmental metrics using past weather data and to understand nonlinear environmental patterns using clustering. We prioritized this approach because initial investigations revealed that environmental behavior is "strongly non-linear and regime-based". Consequently, we focused on developing non-linear ML models (such as LightGBM) capable of capturing complex seasonality and, crucially, identifying hazardous spike days that simple linear models often miss.
 
-Our approach has two components:
+**Why Boston?:**  
+    We made the strategic decision to focus exclusively on the Boston area. While this limited our total data volume, it allowed us to avoid location-specific confounding variables that would arise from combining data across different climate zones or regulatory environments, ensuring our model learned local signals rather than geographic noise.
 
-1. Predicting AQI and allergen levels for a given day of the year to capture broad seasonal patterns.  
-2. Incorporating weather data from the previous three days to improve short-term forecasts.
+<br></br>
 
-Since AQI and pollen are influenced both by cyclical seasonal trends and immediate weather conditions, this dual approach allows us to model long-term patterns while also accounting for short-term variability.
+# 🚀 Build & Run the Project (via Makefile)
+
+This project is fully reproducible using the provided **Makefile**.
+It installs all dependencies, downloads the datasets, executes the notebooks, and launches the Streamlit dashboard.
+
+### 📦 Requirements
+
+* Python 3.8+
+* curl (for dataset download)
+
+---
+
+## 🔧 1. Clone the repo
+
+```bash
+git clone https://github.com/Saniya1016/boston-aqi-prediction.git
+cd boston-aqi-prediction
+```
+
+---
+
+## ⚙️ 2. Build and install dependencies
+
+```bash
+make install
+```
+
+This will:
+
+* create a virtual environment (`venv`)
+* install all requirements from `requirements.txt`
+
+---
+
+## 📥 3. Download the datasets (from HuggingFace)
+
+```bash
+make download-data
+```
+
+This will automatically create a `./Data/` folder and download:
+
+* pollutant data
+* weather data
+* pollen data
+
+---
+
+## 🔁 4. Reproduce the modeling results (notebooks)
+
+```bash
+make run-aqi-nb
+make run-pollen-nb
+```
+
+Each will:
+
+* execute the Jupyter notebook
+* write output back into the notebook file
+
+---
+
+## 📊 5. Run everything (recommended)
+
+```bash
+make run
+```
+
+This will:
+
+* download data (if missing)
+* run both notebooks
+* start the Streamlit dashboard
+
+---
+
+## 🖥️ 6. Launch the Streamlit App (only)
+
+```bash
+make run-streamlit
+```
+
+Then open the app:
+
+```
+http://localhost:8501
+```
+---
 
 <br></br>
 
-## Preliminary Data Visualization
+## Datasets
 
-### Data Distributions
+We combined three independently sourced datasets:
 
-Histograms reveal the statistical characteristics of our key variables.
+Data Type        | Source     | Description
+---------------- | ---------- | -----------------------------------------------
+Weather          | Open-Meteo | Hourly/daily meteorological measurements (temperature, wind, humidity, precipitation, etc.)
+Pollen           | EPHT       | Daily tree, grass, weed, and total pollen counts
+Pollutants + AQI | U.S. EPA   | PM2.5, O3, NO2, CO, SO2 and computed AQI
 
-- **Pollen & AQI:** The Pollen counts (Tree, Grass, Weed, Total) are highly skewed towards zero, meaning most days have low or zero pollen.  
-- **AQI:** Air Quality Index and its components are also skewed, indicating that good air quality days are far more common than unhealthy days.  
-- **Weather:** Temperature shows a clear seasonal, bi-modal distribution, while Precipitation is heavily skewed toward zero (many dry days).  
+The pollen–weather merged dataset contains over 900 daily samples with consistent timestamps and unified variable naming. 
 
-This high skewness and concentration near zero, especially for pollen, suggests that linear models will struggle—motivating our shift to non-linear models.
-
-<img src="visualizations/Plum/histogram_pollen.png" width="700"/>
-<img src="visualizations/Plum/histogram_aqi.png" width="700"/>
-<img src="visualizations/Plum/histogram_weather.png" width="700"/>
-
-### Correlation Analysis - Heatmaps
-
-**Normal Data**  
-To observe any possible linear relationships, Pearson correlation matrices were computed and displayed in a heat map for easy viewing.  
-
-<img src="visualizations/Anna/correlation_heatmap.png" width="700"/>
-
-Strangely, these did not appear to show many strong linear relationships from weather to AQI. To visualize what strong relationships were, we filtered by correlations > abs(0.4).  
-
-<img src="visualizations/Anna/strong_correlation_heatmap.png" width="700"/>
-
-**Lagged Data**  
-Then, we tried the same method with data lagged from multiple days (taking account the average over the last 1, 2, 3 days).  
-
-<img src="visualizations/Anna/lagged_correlation_heatmap.png" width="1000"/>
-
-And once again filtered for stronger relationships, this time only considering those with total pollen or AQI as one of the variables.  
-
-<img src="visualizations/Anna/strong_lagged_correlation_heatmap.png" width="1000"/>
-
-Despite these transformations, no major linear trends emerged, suggesting that nonlinear or clustered patterns may be more informative.  
-This motivated our next step — unsupervised clustering to uncover hidden relationships.
-
-
-
-## Clusters
-
-### Small Number of Clusters
-
-When observing with small amounts of clusters, we didn't necessarily seem to get a lot of useful information—there was a lot of overlap between clusters, and it was difficult to decipher any patterns.  
-
-<img src="visualizations/Anna/weather_pollen_kmeans_3.png" width="400"/>
-<img src="visualizations/Anna/weather_aqi_kmeans_3.png" width="400"/>
-<img src="visualizations/Anna/aqi_pollen_kmeans_3.png" width="400"/>
-
-### "Optimal" Number of Clusters
-
-Using the elbow method, we calculated the optimal number of clusters — 17 for Weather to Pollen, 14 for Weather to AQI, and 11 for AQI to Pollen. These resulted in more interesting (and seemingly more useful) results.  
-
-<img src="visualizations/Anna/weather_pollen_kmeans_17.png" width="400"/>
-
-Although 17 clusters were generated, they broadly fell into three main distinct categories with several intermediary categories:
-
-| Group | Typical Conditions | Mean Temp (°C) | Mean Precip (mm) | Wind Speed (km/h) | Mean Pollen | Description |
-|-------|---------------------|----------------|------------------|------------------|--------------|--------------|
-| A | Cool, dry, early-spring days | 10–14 | <2 | 15–25 | High (250–500) | Peak pollen spikes |
-| B | Warm, humid, post-rain periods | 18–25 | 5–12 | 10–20 | Low (50–150) | Pollen suppressed by rainfall |
-| C | Transitional weather (mild temp, low rain) | 14–18 | 0–4 | 20–30 | Moderate (150–300) | Typical baseline conditions |
-
-**Takeaway:** Even with fine-grained clustering, pollen levels were primarily driven by temperature and precipitation. Cool, dry conditions produced the highest pollen counts, while rain and humidity consistently reduced them.  
-
-<img src="visualizations/Anna/weather_aqi_kmeans_14.png" width="400"/>
-
-We applied KMeans++ clustering (k=14) to weather variables (temperature, precipitation, wind speed, humidity) and daily Air Quality Index (AQI) values.  
-This finer clustering helped reveal distinct meteorological conditions that influence air quality levels in Boston.
-
-| Group | Typical Conditions | Mean Temp (°C) | Mean Precip (mm) | Wind Speed (km/h) | Mean AQI | Description |
-|-------|---------------------|----------------|------------------|------------------|-----------|--------------|
-| A | Hot, dry, stagnant air | 22–27 | <2 | 10–20 | High (45–55) | Elevated AQI, typical of summer heat events |
-| B | Cool, rainy, windy days | 8–14 | 6–10 | 20–30 | Low (25–35) | Cleaner air due to dispersion and wet deposition |
-| C | Mild, dry transition periods | 15–20 | 1–4 | 15–25 | Moderate (35–45) | Average air quality during spring/fall days |
-
-**Takeaway:**  
-Even with higher granularity (k=14), the patterns were clear:
-- AQI rises during hot, stagnant, and dry conditions, when pollutants accumulate near the surface.  
-- Rain and higher wind speeds help clear the air, lowering AQI values.  
-- Transitional days with moderate weather yield mid-range AQI values.
-
-<img src="visualizations/Anna/aqi_pollen_kmeans_11.png" width="400"/>
-
-We clustered AQI values against total pollen counts using KMeans++ (k=11) to investigate how air quality relates to pollen levels.
-
-| Cluster Group | Typical AQI | Total Pollen | Description |
-|----------------|--------------|---------------|--------------|
-| Low AQI, Low Pollen | 25–35 | 10–50 | Clean air, early spring or wet days |
-| Low AQI, Moderate Pollen | 25–35 | 50–150 | Mild days with moderate tree/grass pollen |
-| Moderate AQI, Moderate Pollen | 36–45 | 100–250 | Typical spring/fall conditions |
-| Moderate AQI, High Pollen | 36–45 | 250–500 | Elevated pollen during average air quality days |
-| High AQI, High Pollen | 46–55 | 300–600 | Poor air quality with pollen accumulation |
-| High AQI, Very High Pollen | 46–55 | 600–800+ | Extreme pollen events combined with poor AQI |
-
-**Key Insights:**  
-High AQI often coincides with high pollen counts, suggesting days with stagnant air trap both pollutants and pollen.  
-Low AQI clusters correspond to either clean air with low pollen or mild days with moderate pollen, showing how weather dispersal effects influence both factors.  
-The clustering helps identify pollution-pollen “risk days” for sensitive populations.
-
-
-
-## Clusters With Dates
-
-These new clustering analyses, including day and date, also highlight temporal trends:
-
-<img src="visualizations/Anna/weather_pollen_kmeans_18_dates.png.png" width="400"/>
-
-**Weather → Pollen clusters:**  
-- **High** pollen clusters (e.g., clusters 4, 6, 7, 16, 17) predominantly occur in spring (April–May).  
-- **Low** pollen clusters often correspond to winter (March) or rainy periods.  
-- Month and day data help pinpoint typical pollen peak windows.  
-
-<img src="visualizations/Anna/weather_aqi_kmeans_14_dates.png" width="400"/>
-
-**Weather → AQI clusters:**  
-- High AQI clusters appear mostly in summer (June–July), aligning with hot, dry days.  
-- Low AQI clusters often occur during cooler or rainy months.  
-
-<img src="visualizations/Anna/aqi_pollen_kmeans_12_date.png.png" width="400"/>
-
-**AQI ↔ Pollen clusters:**  
-- Extreme pollen spikes combined with moderate AQI are concentrated in late spring.  
-- Late summer shows low pollen and low AQI, indicating cleaner air and fewer allergens.  
-
-Including the month/day information from clusters helps identify seasonal trends that are not captured by simple linear correlations.
-
-
-
-## Cluster Conclusions
-
-While our earlier correlation analyses did not reveal strong linear relationships between weather, AQI, and pollen, the clustering analyses paint a different picture.
-
-The clusters suggest that there are relationships between these variables, but they are **non-linear** in nature. For example:
-- Certain ranges of AQI coincide with specific pollen levels, even if the overall Pearson correlation is weak.  
-- Weather patterns seem to influence both AQI and pollen, but in complex, multi-dimensional ways that simple linear correlation cannot capture.
+The AQI dataset (used in our air-quality forecasting model) contains 5,844 daily observations from 2009–2024.
 
 <br></br>
-# Data Processing
 
-### Data Quality: Missing Values
+## Data Processing
 
-Analyzing missing data is crucial for understanding the reliability of our data sources. The matrices below show the presence of missing values (white spaces) across the pollen and pollutant datasets. Weather data was largely complete, but both Pollen and Pollutant (AQI) data contain significant gaps. This guided our data imputation strategy (e.g., using monthly medians and carry-forward methods) before modeling.
+A complete preprocessing pipeline was built to standardize and enhance the environmental data.
 
-<img src="visualizations/Plum/missing_data_matrix_pollen.png" width="300"/>
-<img src="visualizations/Plum/missing_data_matrix_aqi.png" width="300"/>
-<img src="visualizations/Plum/missing_data_matrix_weather.png" width="300"/>
+### Column Standardization
+
+- Removed unit markers (°C, mm, km/h)
+
+- Converted to lowercase snake_case
+
+- Consistent naming across all sources
+
+### Temporal Feature Engineering
+
+We added cyclical encodings to reflect seasonality:
+
+- Day of year (sin, cos)
+
+- Month (sin, cos)
+
+- Weekday (sin, cos)
+
+These allow models to learn repeating yearly and weekly biological cycles.
+
+### Lag & Rolling Features
+
+Both AQI and pollen have strong autoregressive behavior.
+
+We generated:
+
+- Lags: 1, 2, 3, 4, 7, 14, 21, 30, 365 days
+
+- Rolling averages: 2, 3, 7, 14, 30 days
+
+Weather-yesterday and weather-rolling windows
+(to avoid data leakage: no same-day weather is used to predict same-day pollen)
+
+### Spike Indicators
+
+Pollen has discontinuous spikes. We computed:
+
+- pollen_ratio_1d_7d = lag_1 / rolling_7
+- z-score thresholding → spike or non-spike label
+
+This enables spike-specific modeling.
+
+### Train/Validation/Test Split (Pollen Models)
+
+#### Chronological split:
+
+- **Train:** 2020–2021
+
+- **Validation:** 2022
+
+- **Test:** 2023–2024
+
+This reflects true forecasting (future unseen data).
 
 <br></br>
-# Data Modelling
 
-### Linear Regression
+# Exploratory Data Analysis
+## Distributions & Missingness
 
-Our initial attempts used Linear Regression as a baseline, revealing major differences in predictability between AQI and Pollen.
+Pollen and pollutants are extremely skewed, with long-tailed spike distributions.
+Weather variables are smooth and seasonal.
+Missing-matrix visualizations show gaps in pollen & pollutant records, all addressed via imputation.
 
-| Model | Target Variable | Features | R² Score | Key Takeaway |
-|--------|------------------|-----------|-----------|---------------|
-| Model 1 | AQI | Pollutants (PM2.5, O3, CO, NO2, SO2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.9342 | High R² is expected because AQI is calculated directly from the pollutant features. Adding weather provides a comprehensive baseline for comparison, confirming data integrity. |
-| Model 2 | Total Pollen | Time features (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) | 0.2211 | Pollen prediction based only on time (seasonality) is poor due to the sporadicity of pollen during pollen season |
-| Model 3 | Total Pollen | Time (Year Normalized, Day Sin/Cos, Day Sin2/Cos2) + Weather (Temp Mean, Precip Sum, Wind Speed Max) | 0.2398 | Adding weather marginally improves performance but fails to capture spikes. Confirms need for non-linear models. |
+<img src="visualizations\Plum\histogram_weather.png" width="400"/>
 
-<img src="visualizations/Plum/linear_regression.png" width="800"/>
+<img src="visualizations\Plum\histogram_pollen.png" width="400"/>
 
-The time series plot below vividly illustrates the failure of the linear model (Model 2) to predict the Pollen spikes over time, confirming that simple models cannot capture the true event-driven and non-linear nature of pollen release.
+<img src="visualizations\Plum\histogram_aqi.png" width="400"/>
 
-<img src="visualizations/Plum/pollen_predicted.png" width="800"/>
+<img src="visualizations\Plum\missing_data_matrix_aqi.png" width="400"/>
 
+<img src="visualizations\Plum\missing_data_matrix_pollen.png" width="400"/>
 
-## Weather AQI Baseline
+<img src="visualizations\Plum\missing_data_matrix_weather.png" width="400"/>
 
-Before using advanced models, we evaluated how well weather variables alone would be able to predict AQI. This baseline helps to determine if the weather can explain day-to-day changes in air quality. 
+## Correlation & Lag Structure
 
-### 1. Method
-We used a merged dataset and selected only the weather features, as mentioned above. A chronological 80/20 split ensured that the validation set represented any future dates. 
+Initial Pearson correlations show **weak linear relationships** between weather, AQI, and pollen. Even lag correlations reveal only mild linear patterns.
 
-Two models were tested:
-- Linear Regression: Baseline linear predictor
-- Random Forest Regressor: Captures simple nonlinearities
+This motivated nonlinear clustering & nonlinear ML models.
 
-### 2. Results
+<img src="visualizations\Anna\correlation_heatmap.png" width="400"/>
+<img src="visualizations\Anna\strong_correlation_heatmap.png" width="400"/>
+<img src="visualizations\Anna\lagged_correlation_heatmap.png" width="400"/>
+<img src="visualizations\Anna\strong_lagged_correlation_heatmap.png" width="400"/>
 
-        Linear Regression (Train R²): 0.065   
-        Linear Regression (Val R²):  -0.069  
-        Random Forest     (Val R²):  -0.059
+## Seasonal Patterns
 
-- Weather alone was not able to explain any of the variability in AQI. 
-- Validation scores are negative which indicates that the predictions are worse than a horizontal baseline. 
+Monthly time-series reveal:
 
-This confirms that recent AQI history and pollutant levels are more predictive than weather features.
+- Tree pollen peaks sharply April–May
 
-# Boston AQI Prediction
+- Grass/weed peaks later in summer
 
-Machine learning models to predict Air Quality Index (AQI) in Boston using historical AQI data and weather conditions.
+- AQI elevates during hot, stagnant summer periods
 
-## 📊 Model Performance
+- Temperature strongly aligns with biological cycles
 
-<img src="visualizations/Saniya/aqi_prediction_analysis.png" width="800"/>
+<img src="visualizations/Lola/Plots (Monthly)/by fours/AQI_monthly_timeseries.png" width="400"/>
 
-### Results Summary
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Grass_monthly_timeseries.png" width="400"/>
 
-We trained two ensemble models to predict daily AQI values:
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Ragweed_monthly_timeseries.png" width="400"/>
 
-| Model | R² Score | RMSE | MAE |
-|-------|----------|------|-----|
-| Random Forest | 0.892 | ~5.2 | ~3.8 |
-| Gradient Boosting | **0.919** | ~4.5 | ~3.2 |
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Total_Pollen_monthly_timeseries.png" width="400"/>
 
-The Gradient Boosting model achieves **92% accuracy** in explaining AQI variation, with typical prediction errors of ±3-7 AQI points.
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Tree_monthly_timeseries.png" width="400"/>
 
-## 🔍 Detailed Analysis
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="400"/> 
 
-### 1. Predicted vs Actual Performance
+<br></br>
 
-**Left & Center Plots**: Compare model predictions against actual AQI values
-- Points along the red diagonal line indicate perfect predictions
-- Both models track actual values well, with Gradient Boosting showing tighter clustering
-- **Observation**: Models tend to underpredict extreme pollution events (AQI > 100)
+# AQI Visualizations
 
-### 2. Residual Analysis
+To understand long-term air-quality behavior in Boston, we generated descriptive plots summarizing distribution, seasonality, and pollutant-weather interactions. These insights helped guide feature engineering and model selection.
 
-**Top Right Plot**: Shows prediction errors (Actual - Predicted)
-- Mean error: **-0.05** (essentially unbiased)
-- Standard deviation: **3.25 AQI points**
-- Random scatter pattern indicates the model has captured the underlying relationships
-- Occasional outliers (±30) occur during unexpected pollution events
+## Distribution of Daily AQI
 
-### 3. Feature Importance
+AQI is right-skewed, with most days between 20–50 and rare high-pollution spikes above 100.
 
-**Bottom Left Plot**: Reveals what drives predictions
+<img src="visualizations/AQI/Distribution_of_daily_aqi.png" width="500"/>
 
-| Feature | Importance | What It Means |
-|---------|-----------|---------------|
-| `AQI_rolling_3` | ~60% | 3-day average AQI dominates predictions |
-| `AQI_lag_2` | ~20% | AQI from 2 days ago |
-| `AQI_lag_1` | ~12% | Yesterday's AQI |
-| `AQI_rolling_7` | ~3% | Weekly trend |
-| Temporal features | <2% each | Season/month have minimal impact |
+<img src="visualizations/AQI/aqi_boxplot.png" width="500"/>
 
-**Key Insight**: Air quality is highly persistent. Recent AQI history is far more predictive than seasonal patterns or current weather alone, because yesterday's AQI already encodes the atmospheric conditions and pollutant levels.
+The boxplot highlights frequent mild outliers and occasional extreme events.
 
-### 4. Time Series Tracking
+<img src="visualizations/AQI/aqi_over_time.png" width="800"/>
 
-**Bottom Center Plot**: Shows last 100 days of predictions vs actual values
-- Model successfully tracks general trends and patterns
-- Predictions are smoother than actual values (model is conservative)
-- Occasionally misses sharp pollution spikes caused by unexpected events
+Long-term trends show high daily variability, seasonal cycles, and notable wildfire-driven spikes.
 
-### 5. Error Distribution
+<img src="visualizations/AQI/Avg_aqi_month.png" width="500"/>
 
-**Bottom Right Plot**: Histogram of all prediction errors
-- Nearly perfect normal distribution (bell curve)
-- 68% of predictions within ±3 AQI points
-- 95% of predictions within ±7 AQI points
-- Rare outliers occur during unusual pollution events
+AQI increases during summer ozone season and drops in fall.
 
-## 🎯 Model Strengths & Limitations
+<img src="visualizations/AQI/aqi_by_day_of_week.png" width="800"/>
+AQI does not show a strong weekday pattern but exhibits slightly higher weekend variability
 
-### ✅ Strengths
-- High accuracy for day-to-day forecasting (R² = 0.919)
-- Unbiased predictions (no systematic over/under-estimation)
-- Low typical error (±3-7 AQI points)
-- Simple and interpretable (relies primarily on recent AQI trends)
+<img src="visualizations/AQI/aqi_by_season.png" width="800"/>
 
-### ⚠️ Limitations
-- Underpredicts extreme pollution events (e.g., wildfire smoke, inversions)
-- Conservative approach may miss sudden pollution spikes
-- Weather features have low importance (atmospheric events already captured in AQI lags)
-- Limited ability to predict "surprise" pollution emergencies
+Seasonal differences are distinct:
 
-## 📈 Features Used
+- Winter particulate
 
-### AQI Lag Features
-- `AQI_lag_1`: Yesterday's AQI
-- `AQI_lag_2`: AQI from 2 days ago
-- `AQI_lag_7`: AQI from 7 days ago
-- `AQI_rolling_3`: 3-day rolling average
-- `AQI_rolling_7`: 7-day rolling average
+- Summer ozone
 
-### Weather Features
-- `temperature_2m_mean`: Daily average temperature
-- `apparent_temperature_mean`: Feels-like temperature
-- `precipitation_sum`: Total daily precipitation
-- `wind_speed_10m_max`: Maximum wind speed
-- `wind_gusts_10m_max`: Maximum wind gusts
+- Cleaner spring/fall shoulders
 
-### Temporal Features
-- `month`: Month of year (1-12)
-- `day_of_year`: Day of year (1-365)
-- `day_of_week`: Day of week (0-6)
-- `season`: Season (1=Winter, 2=Spring, 3=Summer, 4=Fall)
+<img src="visualizations/AQI/correlation_heatmap.png" width="900"/>
 
-### Interaction Features
-- `temp_wind_interaction`: Temperature × Wind speed
+AQI correlates most strongly with PM2.5, O₃, and their lags.
+Weather variables alone show weak correlation, confirming the need for multi-modal features.
 
+<img src="visualizations/AQI/feature_correlation.png" width="900"/>
 
-## Next Steps
+This ranking highlights the linear importance of pollutants and lagged AQI features.
 
-To model these non-linear relationships, we plan to use:
-- **Random Forests:** To capture complex interactions and non-linearities in the data.  
-- **XGBoost:** For gradient-boosted decision trees that can further improve prediction accuracy on these patterns.  
+<img src="visualizations/AQI/aqi_kmeans.png" width="600"/>
 
-These methods should allow us to predict pollen levels from weather and AQI, and vice versa, while accounting for the subtle, non-linear dependencies suggested by our clustering results.
+K-Means clustering on pollutant + weather features reveals four environmental regimes:
 
+- **Cluster 0**:** Summer high-ozone
 
-# Visualizations
-### Data Sources: 
-- **Weather Data:** Open-Meteo
-- **Pollen Data:** EPHT
-- **Pollutant and AQI Data:** EPA
+- **Cluster 1:** Moderate baseline
 
-After merging datasets, to understand the seasonal and temporal structure of our variables, we built daily and monthly charts.
+- **Cluster 2:** Winter particulate buildup
 
-Each variable is plotted across the full date range to show overall temporal behavior. 
+- **Cluster 3:** Clean/windy days
 
-<img src="Lola/Plots (Monthly)/by fours/AQI_monthly_timeseries.png" width="600"/>
+PCA is used only for visualization.
 
-<img src="Lola\Plots (Monthly)\by fours\Grass_monthly_timeseries.png" width="600"/>
+<img src="visualizations/AQI/aqi_pollution_distribution.png" width="600"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Ragweed_monthly_timeseries.png" width="600"/>
+Each regime corresponds to distinct AQI distributions, reinforcing nonlinear environmental structure.
 
-<img src="Lola\Plots (Monthly)\by fours\Total_Pollen_monthly_timeseries.png" width="600"/>
+<br></br>
 
-<img src="Lola\Plots (Monthly)\by fours\Tree_monthly_timeseries.png
-" width="600"/>
+# Clustering Analysis: Nonlinear Environmental Structure
 
-<img src="Lola\Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="600"/>    
+Linear correlations underestimated the true relationships.
+K-Means clustering uncovered distinct environmental regimes.
 
-#### Results Summary:  
-- Pollen rises sharply in spring and falls to zero in the winter.
-- AQI shows milder seasonal variation, with summer increases.
-- Temperature dominates seasonal behavior and strongly correlates with pollen peaks.
+### Weather → Pollen Clusters
 
-## K-Means Clustering
-While correlation heatmaps showed almost no strong linear relationships between weather, AQI, and pollen, the clustering visualizations reveal that the system behaves in non-linear, regime-based patterns.
+Using k = 17:
 
- **Weather → Pollen clusters:**
+- **High pollen spikes:** cool, dry early spring days
 
- <img src="visualizations\Saniya\scripts\plots\aqi\weather_clusters_visualization.png" width="600"/>
+- **Low pollen:** rainy or humid periods
 
-These charts show daily weather observations colored by assigned K-Means cluster. The clusters form clear seasonal pockets:
+- **Moderate pollen:** transitional weather days
 
-- **Highest pollen spikes:** Cool/dry early spring days
-- **Suppressed pollen:** Warm/humid post-rain periods
-- **Moderate pollen:** Mild transitional days
+### Weather → AQI Clusters (k = 14)
 
-The pollen levels change abruptly based on the meteorological and biological thresholds, which explains why linear regression fails. The underlying relationship is piecewise and behaves differently depending on which environmental state it's in, as opposed to following a single relationship across all conditions.
+- **High AQI:** hot, dry, stagnant days
 
-### Elbow & Silhouette Methods
+- **Low AQI:** windy or rainy periods
 
-Across all pairings (weather/pollen, weather/AQI, AQI/pollen), the elbow curve stabilizes around **k = 11-18**,
-  and the silhouette scores peak around **k ≈ 2-3**, then gradually decrease.
+- **Moderate AQI:** mild transitional conditions
 
-<img src="
-visualizations\Saniya\scripts\plots\aqi\clustering_elbow_method.png
-" width="600"/>
+### AQI ↔ Pollen Clusters (k = 11)
 
-The data is high dimensional which requires many clusters to capture subtle regimes. However most clusters fall into a few core macro patterns, such as:
+States emerge such as:
 
-- high pollen
-- post-rain
-- low pollen 
-- stagnant-air high AQI
+- Low AQI + Low Pollen (winter/rain)
 
-There is no single linear trend, instead there are multiple nonlinear relationships depending on the cluster.
+- High Pollen + Moderate AQI (late spring)
 
-### Feature Importance
+- High AQI + High Pollen (stagnant warm spring days)
 
-The model uses:
-- AQI_rolling_3
-- AQI_lag_2
-- AQI_lag_1
+### Date-Aware Clustering
 
-<img src="
-visualizations\Saniya\scripts\plots\aqi\feature_importance.png
-" width="600"/>
+- Adding month/day reveals:
 
-These lag features strongly reflect the cluster structure found earlier. Recent AQI values encode the state of the environmental system, making them strong predictors, whereas weather features appear weaker.
+- Pollen clusters concentrated April–June
 
-### Validation Performance
+- AQI clusters in July–August
 
-<img src="
-visualizations\Saniya\scripts\plots\aqi\validation_performance.png" width="600"/>
+- Suppression periods aligning with rainfall events
 
-From these plots we see a tight alignment along the 1:1 line, mostly random residual scatter, and normal error distribution concentrated around 0. This indicates that non-linear models successfully learn cluster-driven structure.
+<img src="visualizations\Anna\weather_pollen_kmeans_17.png" width="400"/> 
 
-### Test Set Performance
+<img src="visualizations\Anna\weather_aqi_kmeans_14.png" width="400"/> 
 
-<img src="visualizations\Saniya\scripts\plots\aqi\test_set_performance.png" width=600>
+<img src="visualizations\Anna\aqi_pollen_kmeans_11.png" width="400"/> 
 
-On unseen data, the model tracks seasonal patterns well and remains stable across cluster transitions. However, it struggles during abrupt environmental shifts, for example sharp AQI spikes after heat waves.
+<img src="visualizations\Anna\weather_pollen_kmeans_18_dates.png.png" width="400"/> 
 
-### Full vs. Simple Model Comparison
+<img src="visualizations\Anna\weather_aqi_kmeans_14_dates.png" width="400"/> 
 
-<img src="
-visualizations\Saniya\scripts\plots\aqi\full_vs_simple_model.png" width="600"/>
+<img src="visualizations\Anna\aqi_pollen_kmeans_12_date.png.png" width="400"/> 
 
-This figure demonstrates that:
-- The **simple model** collapses across clusters (high error)
-- The **full model** separates regimes effectively (low error)
-- **Errors** increase disproportionately in extreme regimes when features are removed.
+Environmental behavior is strongly non-linear and regime-based, not linearly correlated. This justifies nonlinear ML modeling.
 
-This further confirms the necessity of non-linear, multi-feature models due to the AQI-weather-pollen system consisting of multiple distinct behavioral clusters.
+<br></br>
+
+# AQI Prediction Model
+
+We evaluated Random Forests and Gradient Boosting Regression using lag features plus weather.
+
+The AQI dataset consists of **EPA AQS daily pollutant measurements** for Suffolk County, MA:
+
+| Pollutant | Variable                |
+| --------- | ----------------------- |
+| PM2.5     | Fine particulate matter |
+| O₃        | Ozone                   |
+| CO        | Carbon monoxide         |
+| NO₂       | Nitrogen dioxide        |
+| SO₂       | Sulfur dioxide          |
+
+Weather variables were collected from **Open-Meteo**, including:
+
+- daily mean temperature  
+- daily precipitation  
+- maximum wind speed and gusts  
+
+## Forecasting Setup
+
+We split the data chronologically to mimic real forecasting and avoid leakage:
+| Split      | Period                  | Size (days) | Share |
+| ---------- | ----------------------- | ----------- | ----- |
+| Train      | 2009-01-01 → 2022-12-30 | 5,112       | 87.5% |
+| Validation | 2022-12-31 → 2023-12-30 | 365         | 6.2%  |
+| Test       | 2023-12-31 → 2024-12-31 | 367         | 6.3%  |
+
+## Feature Engineering
+
+All features use past information
+
+To ensure realistic forecasting, the model does not use same-day AQI or weather values. Instead, features include:
+
+- lagged AQI summaries (e.g., AQI_lag_2, AQI_lag_3, AQI_roll3, AQI_roll7, AQI_diff_1, AQI_diff_7)
+
+- lagged pollutant concentrations and rolling averages (lags 1, 3, 7; 3-day and 7-day rolls)
+
+- lagged weather features and rolling averages (temperature, wind, rain)
+
+- pollutant × weather interactions (e.g., PM25_wind, O3_temp, NO2_wind)
+
+- temporal patterns (month, day-of-year, day-of-week + sine/cosine encodings, weekend flag)
+
+After feature construction and dropping rows without sufficient history, we obtain:
+
+- 53 predictive features
+
+- ≈4,800 training examples (train + val)
+
+## Models Evaluated
+
+We compared several algorithms:
+
+1. Ridge Regression (baseline linear model)
+
+2. Lasso Regression (sparse linear baseline)
+
+3. XGBoost Regressor
+
+4. LightGBM Regressor
+
+5. Random Forest Regressor
+
+Hyperparameters for the tree-based models were tuned on the validation year, then each model was retrained on train + validation and evaluated once on the held-out test year (2024).
+
+## Performance
+Test Performance (2024)
+
+| Model         | R²        | RMSE     | MAE      |
+| ------------- | --------- | -------- | -------- |
+| Ridge         | 0.30      | —        | —        |
+| XGBoost       | 0.38      | 8.58     | 6.57     |
+| LightGBM      | 0.39      | 8.52     | 6.53     |
+| Random Forest | 0.39      | 8.51     | 6.61     |
+| **Ensemble**  | **0.397** | **8.46** | **6.50** |
+
+The ensemble explains about 40% of the variance in daily AQI while keeping typical prediction errors within about ±6–9 AQI points
+
+## Interpretation
+
+Daily AQI is highly stochastic and influenced by:
+
+- meteorology
+
+- short-term emission events
+
+- external wildfires and regional transport
+
+- unobserved sources not in the dataset
+
+Given a single-city, daily-resolution dataset (~5.8k rows), achieving R² ≈ 0.4 is consistent with reported difficulty levels for AQI forecasting. The ensemble:
+
+- captures seasonal trends and multi-day pollution episodes
+
+- tracks most moderate pollution days
+
+- still underpredicts rare high-AQI spikes, which are often driven by wildfire smoke or unusual synoptic events that are hard to infer from local history alone
+
+Classification Perspective
+
+If we convert continuous AQI predictions into categorical EPA levels:
+
+- 0 = Good (≤ 50)
+
+- 1 = Moderate (51–100)
+
+- 2+ = Unhealthy ranges (aggregated)
+
+on the test set we obtain:
+
+- Macro F1 ≈ 0.63
+
+- Weighted F1 ≈ 0.92
+
+- Precision for “Good” ≈ 0.94
+
+This suggests that, even if exact AQI is imperfect, the model is useful for high-level messaging such as whether air quality is likely to remain “Good” vs. shift into “Moderate or worse.”
+
+<img src="visualizations\AQI\A_vs_P_over_time.png" width="400"/> 
+<img src="visualizations\AQI\actual_vs_pred_scatter.png" width="400"/> 
+<img src="visualizations\AQI\Distribution_pred_residuals.png" width="400"/> 
+<img src="visualizations\AQI\Residuals_over_time.png" width="400"/> 
+<img src="visualizations\AQI\Res_vs_actual.png" width="400"/> 
+<img src="visualizations\AQI\Top_features.png" width="400"/> 
+
+<br></br>
+
+# Pollen Prediction Models
+
+Predicting pollen is substantially more difficult due to:
+
+- Biological triggers (not all recorded)
+
+- Environmental thresholds (temperature, rain suppression)
+
+- Sudden, sharp multi-day spikes
+
+We implemented multiple non-linear models, each capturing different aspects.
+
+### Model Process
+The initial modeling attempt began with **Linear Regression**, which yielded a very low $R^2$ value, confirming the highly nonlinear nature of pollen dynamics.
+
+From there, we transitioned to tree-based methods:
+
+* **Random Forest Regressor:** Even with extensive hyperparameter tuning, performance capped out around $R^2 \approx 0.30 - 0.35$. This limitation was partly attributed to our restricted dataset size ($\approx 2,000$ data points).
+* **XGBoost Regressor:** This model was implemented next but proved to be computationally slow and continued to struggle specifically with predicting the sharp pollen **spikes**.
+* **LightGBM Regressor:** We shifted to LightGBM, which offered slightly better performance, ran quicker, and facilitated faster hyperparameter tuning.
+
+The persistent issue of uncaptured spikes led to an experiment with data transformation:
+
+* **Log Transformation:** Applying a **log transformation** to the total pollen count yielded a slightly better $R^2$, helping the model better fit the wide range of values.
+
+Finally, a **Classification Model** was developed, recognizing that a user often consumes pollen information categorically (e.g., "High," "Moderate"). While the overall accuracy was reasonable (in the 70s), the **macro F1 score was stuck in the 50s** due to the scarcity of data points in the "very high" and "high" classes.
+
+
+
+## LightGBM Regressor (Best Overall Model)
+### Performance
+
+- MAE: 84.3
+
+- RMSE: 238.3
+
+- R²: 0.357
+
+### Interpretation
+
+- Learns smooth seasonal and short-term pollen movements
+
+- Underpredicts extreme spikes (biological events not captured in weather alone)
+
+- Greater stable generalization across 2023–2024 test set
+
+<img src="visualizations\pollen model images\lightgbm_actual_vs_pred.png" width="400"/> 
+
+<img src="visualizations\pollen model images\lightgbm_residuals.png" width="400"/> 
+
+<img src="visualizations\pollen model images\lightgbm_timeseries.png" width="400"/> 
+
+## LightGBM Regressor with Log Scaling on Pollen (Best Overall Model)
+### Performance
+
+- MAE: 83.97
+
+- RMSE: 224.1
+
+- R²: 0.432
+
+### Interpretation
+- Learns smooth seasonal and short-term pollen movements
+
+- Underpredicts extreme spikes to a lesser extent, but still significant
+
+- Most stable generalization across 2023–2024 test set
+
+<img src="visualizations/pollen model images/lightgbm_log_actual_vs_pred.png.png" width="400"/> 
+
+<img src="visualizations/pollen model images/lightgbm_log_residuals.png" width="400"/> 
+
+<img src="visualizations/pollen model images/lightgbm_log_actual_vs_pred.png.png" width="400"/> 
+
+## XGBoost Regressor
+
+### Performance
+
+- R² ≈ 0.30  
+- RMSE ≈ 210  
+
+### Interpretation
+
+- Performs competitively on mid-range counts
+
+- Slightly worse generalization than LightGBM
+
+- Similar difficulties with spike prediction
+
+<img src="visualizations\pollen model images\xgboost_actual_vs_pred.png" width="400"/> 
+
+<img src="visualizations\pollen model images\xgboost_actual_vs_pred_timeseries.png" width="400"/> 
+
+<img src="visualizations\pollen model images\xgboost_feature_importance.png" width="400"/> 
+
+## Two-Stage Spike Model
+
+(Classifier → Spike Regressor + Non-Spike Regressor)
+
+## Spike Classifier
+
+**AUC: 0.983**
+
+Accurately distinguishes spike vs. non-spike conditions.
+
+### Regression Results
+
+**MAE: ~86**
+
+**RMSE: ~233**
+
+**R²: 0.38**
+
+### Interpretation
+
+- Best theoretical structure
+
+- Limited by small number of spike days
+
+- Useful for threshold-based alerts, even where RMSE is not lowest
+
+<img src="visualizations\pollen model images\spike_model_auc.png" width="400"/> 
+
+<img src="visualizations\pollen model images\spike_model_residuals.png" width="400"/> 
+
+<img src="visualizations\pollen model images\spike_model_timeseries.png" width="400"/> 
+
+## Classification Model
+
+### Performance 
+
+**Tree Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.75 | 260 |
+| **macro avg** | 0.53 | 0.54 | 0.53 | 260 |
+| **weighted avg** | 0.76 | 0.75 | 0.76 | 260 |
+
+**Grass Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.75 | 260 |
+| **macro avg** | 0.51 | 0.54 | 0.52 | 260 |
+| **weighted avg** | 0.76 | 0.75 | 0.75 | 260 |
+
+**Weed Pollen**
+| Metric | Precision | Recall | F1-Score | Support |
+| :--- | :---: | :---: | :---: | :---: |
+| **accuracy** | | | 0.77 | 260 |
+| **macro avg** | 0.50 | 0.50 | 0.50 | 260 |
+| **weighted avg** | 0.78 | 0.77 | 0.78 | 260 |
+
+### Interpretation
+- Predicts pollen in a more user-friendly way
+
+- Reasonable accuracy
+
+- Poor F1 score and support for higher classes 
+
+<img src="visualizations/pollen model images/classification_actual_vs_pred.png.png" width="400"/> 
+
+# Model Comparison
+
+| **Model**    | **MAE**  | **RMSE**| **R²**   | **Strength**                  |
+| ------------ | -------- | ------- | -------- | ------------------------------ |
+| **LightGBM** | **84.3** | 238     | **0.36** | Best overall generalization    |
+| Spike Model  | 86       | 233     | 0.38     | Best conceptual fit for spikes |
+| XGBoost      | 86       | **210** | 0.30     | Strong mid-range performance   |
+
+- **No model perfectly captures extreme spikes**, which align with biological release triggers not accounted for in weather data.
+
+- **LightGBM** is the most robust and interpretable final choice.
+
+- **Spike model** is valuable for distinguishing hazard days. 
+
+<br></br>
+
+# Difficulties and Challenges
+
+Throughout the project, we encountered several intrinsic and methodological challenges that affected the final model performance and development process.
+
+### 1. Data Scarcity and Performance Ceiling
+A primary limitation was the **small size of our datasets** relative to the complexity of the environmental phenomena we were modeling:
+
+* **AQI Dataset:** Approximately 4,000 daily observations.
+* **Pollen Dataset:** Approximately 2,000 daily observations.
+
+This limited sample size placed an **intrinsic ceiling** on the predictive power of our models. Accurately capturing the complex, nonlinear interactions between weather, temporal cycles, and environmental factors requires substantial historical data.
+
+The decision to focus exclusively on the **Boston area** prevented us from accessing more data, but it strategically allowed us to **avoid location-specific confounding variables** that would arise from combining data across different climate zones or regulatory environments.
+
+### 2. The Challenge of Data Leakage
+
+**Data leakage** was an ever-present and persistent problem, especially given our reliance on **lagged and rolling features** for time-series forecasting. 
+
+It was technically difficult to track all constructed features and ensure strict adherence to the forecasting setup (i.e., using *only* past information to predict the present day).
+
+We frequently experienced high, but artificially inflated, $R^2$ scores, only to find the cause was a form of **target or feature leakage** (e.g., accidentally using a same-day rolling average or a pollutant interaction feature that included the current day's target information). This required rigorous inspection and redesign of the feature engineering pipeline to maintain the integrity of our time-series validation.
+
+
+### 3. Overly Optimistic Performance Targets
+
+A major conceptual challenge was setting an initial performance target, such as an $R^2$ of **0.75**. This proved to be highly optimistic. Forecasting complex, real-world biological and environmental phenomena—like pollen and AQI—is intrinsically difficult because these processes are affected by a countless number of variables (e.g., microclimate variations, unobserved regional transport, non-local emission events). Given our relatively limited dataset and the high stochasticity of the targets, achieving a perfect fit was, realistially, statistically infeasible and led to a necessary re-evaluation of the models' true ceiling.
+
+<br></br>
+
+# Next Steps 
+If we were to continue this project, here are some next steps we would take:
+
+### 1. Dataset Expansion and Multi-Region Modeling 
+The most impactful improvement would be a **significant expansion of the dataset**, both temporally and geographically. We would consider potenitally purchasing access to
+datasets with more datapoints available as well as looking at data from other cities with similar climate classifications.
+
+### 2. Incorporation of Exogenous and Latent Environmental Drivers  
+It could be useful for us to include other environmental data, such as satellite-based aerosol and vegetation indices (e.g., NDVI, AOD), upwind wind-field transport feature, 
+or land-use and vegetation density data. These additions could help reduce the unexplained variance that currently limits predictive performance.
+
+### 3. Reframing Performance Expectations with Domain-Specific Metrics  
+Instead of relying primarily on $R^2$, future evaluations could incorporate **domain-relevant performance metrics**, such as: 
+* Classification accuracy on **health risk categories** (e.g., “Good,” “Moderate,” “Unhealthy” AQI bands)  
+* Event-based scoring for **high-pollen or pollution spike detection**  
+* Asymmetric error penalties that prioritize **false negatives** for hazardous conditions  
+
+This would align model evaluation with real-world public health decision-making.
+
