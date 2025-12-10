@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 class RandomForestPollen:
@@ -23,6 +24,7 @@ class RandomForestPollen:
         self.y_test_real = None
         self.y_pred_real = None
         self.metrics = {}
+        self.test_df = None
 
     def short_description(self):
         return "Random Forest Regressor (Notebook Setup). Features: Weighted Rolling Avgs, Seasonality (Sin/Cos), Interactions. Target is Log-Transformed."
@@ -137,6 +139,13 @@ class RandomForestPollen:
         self.y_pred_real = np.expm1(y_pred_log)
         self.y_test_real = np.expm1(y_test)
 
+        # Capture Dates for Time Series Plot (sorted chronologically)
+        self.test_df = pd.DataFrame({
+            "Date": df.loc[X_test.index, "Date"],
+            "Actual": self.y_test_real,
+            "Predicted": self.y_pred_real
+        }).sort_values("Date")
+
         # Metrics
         mae = mean_absolute_error(self.y_test_real, self.y_pred_real)
         rmse = np.sqrt(mean_squared_error(self.y_test_real, self.y_pred_real))
@@ -148,39 +157,72 @@ class RandomForestPollen:
             "Predicted Pollen": self.y_pred_real
         })
 
-    def plot_results(self, data_dict):
+    def plot_results(self, data_dict=None):
         if not self.trained:
             fig = go.Figure()
             fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
             return fig
 
-        # Scatter: Actual vs Predicted
-        fig = go.Figure()
+        # Create subplots: 1 row, 2 cols
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=(
+                f"Actual vs Predicted (R²: {self.metrics['R2']:.2f})", 
+                "Pollen Forecast Over Time"
+            )
+        )
 
+        # Plot 1: Scatter
         fig.add_trace(go.Scatter(
             x=self.y_test_real,
             y=self.y_pred_real,
             mode='markers',
             name='Test Predictions',
-            opacity=0.6
-        ))
+            marker=dict(opacity=0.6, color='orange'),
+            showlegend=False
+        ), row=1, col=1)
 
         # Perfect diagonal reference line
         line_max = max(self.y_test_real.max(), self.y_pred_real.max())
-
         fig.add_trace(go.Scatter(
             x=[0, line_max], 
             y=[0, line_max],
             mode='lines',
             name='Perfect Fit',
-            line=dict(dash='dash')
-        ))
+            line=dict(dash='dash', color='red'),
+            showlegend=False
+        ), row=1, col=1)
+
+        # Plot 2: Time Series
+        fig.add_trace(go.Scatter(
+            x=self.test_df["Date"],
+            y=self.test_df["Actual"],
+            mode='lines+markers',
+            name='Actual',
+            line=dict(color='gray'),
+            opacity=0.7
+        ), row=1, col=2)
+
+        fig.add_trace(go.Scatter(
+            x=self.test_df["Date"],
+            y=self.test_df["Predicted"],
+            mode='lines+markers',
+            name='Predicted',
+            line=dict(color='orange'),
+            opacity=0.7
+        ), row=1, col=2)
 
         fig.update_layout(
-            title=f"Random Forest (Log-Target)<br>R²: {self.metrics['R2']:.3f} | MAE: {self.metrics['MAE']:.1f}",
-            xaxis_title="Actual Total Pollen",
-            yaxis_title="Predicted Total Pollen",
-            template="plotly_white"
+            title=f"Random Forest (Log-Target) | MAE: {self.metrics['MAE']:.1f}",
+            template="plotly_white",
+            height=500,
+            showlegend=True
         )
+
+        # Update axis titles
+        fig.update_xaxes(title_text="Actual Pollen", row=1, col=1)
+        fig.update_yaxes(title_text="Predicted Pollen", row=1, col=1)
+        fig.update_xaxes(title_text="Date", row=1, col=2)
+        fig.update_yaxes(title_text="Total Pollen", row=1, col=2)
 
         return fig

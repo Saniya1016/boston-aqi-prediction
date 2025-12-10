@@ -5,6 +5,7 @@ import lightgbm as lgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 class LightGBMPollen:
     def __init__(self):
@@ -17,6 +18,7 @@ class LightGBMPollen:
         self.y_test = None
         self.y_pred = None
         self.metrics = {}
+        self.test_df = None
 
     def short_description(self):
         return "LightGBM Regressor (Notebook Setup). Features: Lags, Rolling, Seasonality, Weighted Pollutants. Uses Early Stopping."
@@ -85,6 +87,13 @@ class LightGBMPollen:
         self.y_test = y_test
         self.y_pred = self.model.predict(X_test)
 
+        # Capture Dates for Time Series Plot (sorted chronologically)
+        self.test_df = pd.DataFrame({
+            "Date": df.loc[X_test.index, "Date"],
+            "Actual": self.y_test.values,
+            "Predicted": self.y_pred
+        }).sort_values("Date")
+
         mae = mean_absolute_error(self.y_test, self.y_pred)
         rmse = np.sqrt(mean_squared_error(self.y_test, self.y_pred))
         r2 = r2_score(self.y_test, self.y_pred)
@@ -104,31 +113,66 @@ class LightGBMPollen:
         actual = self.y_test
         predicted = self.y_pred
 
-        fig = go.Figure()
+        # Create subplots: 1 row, 2 cols
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=(
+                f"Actual vs Predicted (R²: {self.metrics['R2']:.2f})", 
+                "Pollen Forecast Over Time"
+            )
+        )
 
+        # Plot 1: Scatter
         fig.add_trace(go.Scatter(
             x=actual,
             y=predicted,
             mode='markers',
             name='Predictions',
-            opacity=0.6
-        ))
+            marker=dict(opacity=0.6, color='blue'),
+            showlegend=False
+        ), row=1, col=1)
 
+        # Perfect Fit Line
         line_max = max(actual.max(), predicted.max())
-
         fig.add_trace(go.Scatter(
             x=[0, line_max],
             y=[0, line_max],
             mode='lines',
             name='Perfect Fit',
-            line=dict(dash='dash', color='white')
-        ))
+            line=dict(dash='dash', color='red'),
+            showlegend=False
+        ), row=1, col=1)
+
+        # Plot 2: Time Series
+        fig.add_trace(go.Scatter(
+            x=self.test_df["Date"],
+            y=self.test_df["Actual"],
+            mode='lines+markers',
+            name='Actual',
+            line=dict(color='gray'),
+            opacity=0.7
+        ), row=1, col=2)
+
+        fig.add_trace(go.Scatter(
+            x=self.test_df["Date"],
+            y=self.test_df["Predicted"],
+            mode='lines+markers',
+            name='Predicted',
+            line=dict(color='blue'),
+            opacity=0.7
+        ), row=1, col=2)
 
         fig.update_layout(
-            title=f"LightGBM Results<br>R²: {self.metrics['R2']:.3f} | RMSE: {self.metrics['RMSE']:.1f}",
-            xaxis_title="Actual Total Pollen",
-            yaxis_title="Predicted Total Pollen",
+            title_text=f"LightGBM Results | RMSE: {self.metrics['RMSE']:.1f}",
             template="plotly_white",
+            height=500,
+            showlegend=True
         )
+        
+        # Update axis titles
+        fig.update_xaxes(title_text="Actual Pollen", row=1, col=1)
+        fig.update_yaxes(title_text="Predicted Pollen", row=1, col=1)
+        fig.update_xaxes(title_text="Date", row=1, col=2)
+        fig.update_yaxes(title_text="Total Pollen", row=1, col=2)
 
         return fig
