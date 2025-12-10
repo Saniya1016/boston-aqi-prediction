@@ -46,37 +46,48 @@ install: $(VENV_BIN)/activate
 # Execution Targets
 
 ## Download dataset from Hugging Face
+DATA_DIR := Data
+AQI_CSV := $(DATA_DIR)/boston_pollutants.csv
+WEATHER_CSV := $(DATA_DIR)/boston_weather.csv
+POLLEN_CSV := $(DATA_DIR)/boston_pollen.csv
+
 .PHONY: download-data
-download-data:
-	@echo "⬇️  Downloading datasets from HuggingFace..."
-	mkdir -p Data
-	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston_pollutants_with_aqi_include_2024.csv" -o Data/boston_pollutants.csv
-	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston-weather-data(open_meteo).csv" -o Data/boston_weather.csv
-	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/EPHT_Pollen_Data.csv" -o Data/boston_pollen.csv
-	@echo "📦  Download complete!"
+download-data: $(AQI_CSV) $(WEATHER_CSV) $(POLLEN_CSV)
+
+$(AQI_CSV):
+	mkdir -p $(DATA_DIR)
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston_pollutants_with_aqi_include_2024.csv" -o $@
+
+$(WEATHER_CSV):
+	mkdir -p $(DATA_DIR)
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston-weather-data(open_meteo).csv" -o $@
+
+$(POLLEN_CSV):
+	mkdir -p $(DATA_DIR)
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/EPHT_Pollen_Data.csv" -o $@
 
 
 ## Run the AQI Prediction Notebook
 .PHONY: run-aqi-nb
-run-aqi-nb: install
+run-aqi-nb: install download-data
 	@echo "Running AQI Prediction Notebook..."
 	$(JUPYTER) nbconvert --to notebook --execute --inplace $(AQI_NOTEBOOK)
 
 ## Run the Pollen Models Notebook
 .PHONY: run-pollen-nb
-run-pollen-nb: install
+run-pollen-nb: install download-data
 	@echo "Running Pollen Models Notebook..."
 	$(JUPYTER) nbconvert --to notebook --execute --inplace $(POLLEN_NOTEBOOK)
 
 ## Run the Streamlit Application
 .PHONY: run-streamlit
-run-streamlit: install
+run-streamlit: install download-data
 	@echo "Starting Streamlit App..."
 	$(PYTHON) -m streamlit run $(STREAMLIT_APP)
 
 ## Run All Targets
 .PHONY: run
-run: download-data run-aqi-nb run-pollen-nb run-streamlit
+run: run-aqi-nb run-pollen-nb run-streamlit
 	@echo "✅ All required processes have been started/executed."
 
 # Cleanup (Optional)
