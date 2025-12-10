@@ -45,6 +45,17 @@ install: $(VENV_BIN)/activate
 
 # Execution Targets
 
+## Download dataset from Hugging Face
+.PHONY: download-data
+download-data:
+	@echo "⬇️  Downloading datasets from HuggingFace..."
+	mkdir -p Data
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston_pollutants_with_aqi_include_2024.csv" -o Data/boston_pollutants.csv
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/boston-weather-data(open_meteo).csv" -o Data/boston_weather.csv
+	curl -L "https://huggingface.co/datasets/saneya-singh/boston-aqi-pollen/resolve/main/EPHT_Pollen_Data.csv" -o Data/boston_pollen.csv
+	@echo "📦  Download complete!"
+
+
 ## Run the AQI Prediction Notebook
 .PHONY: run-aqi-nb
 run-aqi-nb: install
@@ -65,7 +76,7 @@ run-streamlit: install
 
 ## Run All Targets
 .PHONY: run
-run: run-aqi-nb run-pollen-nb run-streamlit
+run: download-data run-aqi-nb run-pollen-nb run-streamlit
 	@echo "✅ All required processes have been started/executed."
 
 # Cleanup (Optional)
