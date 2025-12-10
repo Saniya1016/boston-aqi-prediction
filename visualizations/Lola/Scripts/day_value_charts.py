@@ -4,7 +4,7 @@ import seaborn as sns
 import os
 
 #load data
-df = pd.read_csv('merged_data.csv')
+df = pd.read_csv(r'visualizations/Lola/Scripts/merged_data.csv')
 
 #datetime format
 df['date'] = pd.to_datetime(df['date'])

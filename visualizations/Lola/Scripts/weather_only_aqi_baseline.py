@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 
 #Load merged dataset
-df = pd.read_csv("Lola/merged_data.csv")
+df = pd.read_csv(r"visualizations/Lola/Scripts/merged_data.csv")
 
 print("Columns in merged dataframe:")
 print(df.columns)
@@ -69,7 +69,7 @@ print("\n=== Weather-only AQI baseline: Random Forest ===")
 print(f"Val R^2: {r2_val_rf:.3f}")
 
 #Save summary to file
-with open("Lola/weather_only_aqi_results.txt", "w") as f:
+with open(r"visualizations/Lola/Scripts/weather_only_aqi_results.txt", "w") as f:
     f.write("Weather-only AQI baseline (no lagged AQI, no pollen, no pollutants)\n")
     f.write(f"Features: {weather_cols}\n")
     f.write(f"Train R^2 (LinearRegression): {r2_train_lr:.3f}\n")

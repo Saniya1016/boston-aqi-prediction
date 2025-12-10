@@ -32,5 +32,6 @@ numeric_cols = merged_df.select_dtypes(include=[np.number]).columns
 merged_df[numeric_cols] = merged_df[numeric_cols].apply(lambda col: col.fillna(col.mean()))
 
 #save to new file
-merged_df.to_csv('Lola/merged_data.csv', index=False)
-print("file saved as 'Lola/merged_data.csv'")
+# save to new file
+merged_df.to_csv('visualizations/Lola/Scripts/merged_data.csv', index=False)
+print("file saved as 'visualizations/Lola/Scripts/merged_data.csv'")
