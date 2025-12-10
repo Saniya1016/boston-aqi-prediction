@@ -1,153 +1,132 @@
-# file: xgboost_pollen.py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import plotly.graph_objects as go
 
 class XGBoostPollen:
     def __init__(self):
         self.model = XGBRegressor(
-            objective='reg:squarederror',
-            n_estimators=100, # Default per notebook output [84]
-            learning_rate=0.1,
+            n_estimators=1000,
+            learning_rate=0.05,
             max_depth=6,
-            random_state=42,
-            n_jobs=-1
+            subsample=0.8,
+            colsample_bytree=0.8,
+            n_jobs=-1,
+            random_state=42
         )
-        self.trained = False
-        self.y_test_real = None
-        self.y_pred_real = None
         self.metrics = {}
+        self.output_df = None
 
     def short_description(self):
-        return "XGBoost Regressor for Pollen (Log-transformed target)."
+        return "XGBoost (Rolling Means, Weighted Features, Early Stopping)."
 
     def _engineer_features(self, data_dict):
-        # Reusing the extensive feature engineering from Random Forest as baseline
         w = data_dict["weather"].copy()
         p = data_dict["pollutants"].copy()
         pol = data_dict["pollen"].copy()
+        
+        w = w.rename(columns={'time': 'Date'})
+        p = p.rename(columns={'date': 'Date'})
+        if 'Date' not in pol.columns:
+            date_col = next((c for c in pol.columns if 'date' in c.lower()), None)
+            if date_col:
+                pol = pol.rename(columns={date_col: 'Date'})
 
-        w['Date'] = pd.to_datetime(w['time'])
-        p['Date'] = pd.to_datetime(p['date'])
+        w['Date'] = pd.to_datetime(w['Date'])
+        p['Date'] = pd.to_datetime(p['Date'])
         pol['Date'] = pd.to_datetime(pol['Date'])
-
+        
         df = w.merge(p, on='Date', how='inner').merge(pol, on='Date', how='inner')
-        df = df[df['Date'].dt.month.isin(range(3, 11))].copy()
-
+        df = df.sort_values('Date').reset_index(drop=True)
         target = "Total_Pollen"
-        df["day_of_year"] = df["Date"].dt.dayofyear
-        df["lag1"] = df[target].shift(1)
-        df["lag2"] = df[target].shift(2)
-        df["lag3"] = df[target].shift(3)
-        df["pollen_3day"] = df[target].rolling(3).mean()
-        df["pollen_7day"] = df[target].rolling(7).mean()
-
-        threshold = df[target].mean() + df[target].std()
-        df["is_spike"] = (df[target] > threshold).astype(int)
-
-        df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
-        df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
-
+        
+        df['lag1'] = df[target].shift(1)
+        df['roll3'] = df[target].shift(1).rolling(3).mean()
+        df['roll7'] = df[target].shift(1).rolling(7).mean()
+        df['roll30'] = df[target].shift(1).rolling(30).mean()
+        
+        df['day_of_year'] = df['Date'].dt.dayofyear
+        df['sin_day'] = np.sin(2 * np.pi * df['day_of_year'] / 365)
+        
         weights = np.array([0.1, 0.3, 0.6])
-        rolling_cols = [
-            "temperature_2m_mean (°C)", "apparent_temperature_mean (°C)",
-            "PM2.5", "O3", "CO", "NO2", "SO2",
-            "AQI", "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2"
-        ]
-        rolling_cols = [c for c in rolling_cols if c in df.columns]
+        exclude_cols = ["Tree", "Grass", "Weed", "Ragweed", target, "Date", "Year", "Month", "Day", "Week", "AQI_Category", "date_local"]
+        numeric_cols = [c for c in df.select_dtypes(include=np.number).columns if c not in exclude_cols]
+        
+        for col in numeric_cols:
+            s0 = df[col].shift(2)
+            s1 = df[col].shift(1)
+            s2 = df[col]
+            df[f'{col}_weighted3'] = (weights[0]*s0 + weights[1]*s1 + weights[2]*s2)
 
-        for col in rolling_cols:
-            df[f"{col}_weighted3"] = (
-                df[col].shift(2).bfill() * weights[0] +
-                df[col].shift(1).bfill() * weights[1] +
-                df[col] * weights[2]
-            )
-            for lag in range(1, 4):
-                df[f"{col}_lag{lag}"] = df[col].shift(lag).bfill()
-
-        interaction_pairs = [
-            ("temperature_2m_mean (°C)", "AQI"),
-            ("apparent_temperature_mean (°C)", "PM2.5"),
-            ("wind_speed_10m_max (km/h)", "O3"),
-        ]
-        for col1, col2 in interaction_pairs:
-            if col1 in df.columns and col2 in df.columns:
-                df[f"{col1}_x_{col2}"] = df[col1] * df[col2]
-
-        df = df.dropna()
-        return df
+        df = df[df['Date'].dt.month.isin(range(3, 11))].copy()
+        return df, target
 
     def predict(self, data_dict):
-        df = self._engineer_features(data_dict)
-        target = "Total_Pollen"
-
-        remove_cols = ["Date", "time", "date", "Month", "Year", "Day", "Week", 
-                       "Tree_Level", "Grass_Level", "Weed_Level", "Ragweed_Level", 
-                       "AQI_Category", "weather_code (wmo code)", "OBJECTID",
-                       "Tree", "Grass", "Weed", "Ragweed", "day_of_year", target]
+        df, target = self._engineer_features(data_dict)
         
-        feature_cols = [c for c in df.columns if c not in remove_cols and df[c].dtype in ['float64', 'int64', 'int32']]
+        df['Year'] = df['Date'].dt.year
+        train_df = df[df['Year'] < 2023].copy()
+        test_df = df[df['Year'] >= 2023].copy()
         
-        X = df[feature_cols]
-        y_log = np.log1p(df[target])
-
-        # Use notebook specific year split if aligned, or random if consistent
-        # Notebook snippet 7 uses Year < 2022 for train. Let's use TimeSeriesSplit logic or standard year split to be safe.
-        # But RF used random split. I will stick to RF's random split for consistency with the RF file.
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_log, test_size=0.2, random_state=42
+        thresh = train_df[target].mean() + train_df[target].std()
+        train_df['is_spike'] = (train_df[target].shift(1) > thresh).astype(int)
+        test_df['is_spike'] = (test_df[target].shift(1) > thresh).astype(int)
+        
+        train_df = train_df.dropna().reset_index(drop=True)
+        test_df = test_df.dropna().reset_index(drop=True)
+        
+        exclude_final = [target, "Date", "Year", "Month", "Day", "Week", "AQI_Category", "date_local", "Tree", "Grass", "Weed", "Ragweed"]
+        features = [c for c in train_df.columns if c not in exclude_final]
+        
+        X_train = train_df[features]
+        y_train = train_df[target]
+        X_test = test_df[features]
+        y_test = test_df[target]
+        
+        self.model.fit(
+            X_train, y_train,
+            eval_set=[(X_test, y_test)],
+            verbose=False
         )
-
-        self.model.fit(X_train, y_train)
-        self.trained = True
-
-        y_pred_log = self.model.predict(X_test)
-        self.y_pred_real = np.expm1(y_pred_log)
-        self.y_test_real = np.expm1(y_test)
-
-        mae = mean_absolute_error(self.y_test_real, self.y_pred_real)
-        rmse = np.sqrt(mean_squared_error(self.y_test_real, self.y_pred_real))
-        r2 = r2_score(self.y_test_real, self.y_pred_real)
-        self.metrics = {"MAE": mae, "RMSE": rmse, "R2": r2}
-
-        return pd.DataFrame({
-            "Actual Pollen": self.y_test_real.values,
-            "Predicted Pollen": self.y_pred_real
-        })
+        
+        preds = self.model.predict(X_test)
+        
+        self.metrics['MAE'] = mean_absolute_error(y_test, preds)
+        self.metrics['RMSE'] = np.sqrt(mean_squared_error(y_test, preds))
+        self.metrics['R2'] = r2_score(y_test, preds)
+        
+        self.output_df = test_df[['Date']].copy()
+        self.output_df['Actual_Pollen'] = y_test
+        self.output_df['Predicted_Pollen'] = preds
+        
+        return self.output_df
 
     def plot_results(self, data_dict):
-        if not self.trained:
-            fig = go.Figure()
-            fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
-            return fig
+        if self.output_df is None:
+            self.predict(data_dict)
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=self.y_test_real,
-            y=self.y_pred_real,
-            mode='markers',
-            name='Test Predictions',
-            opacity=0.6,
-            marker=dict(color='purple')
-        ))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+        
+        y_test = self.output_df['Actual_Pollen']
+        preds = self.output_df['Predicted_Pollen']
+        
+        ax1.scatter(y_test, preds, alpha=0.5, color='orange')
+        min_val = min(y_test.min(), preds.min())
+        max_val = max(y_test.max(), preds.max())
+        ax1.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
+        ax1.set_title(f"Actual vs Predicted (R²={self.metrics.get('R2', 0):.2f})")
+        ax1.set_xlabel("Actual Pollen")
+        ax1.set_ylabel("Predicted Pollen")
+        ax1.grid(True, alpha=0.3)
 
-        line_max = max(self.y_test_real.max(), self.y_pred_real.max())
-        fig.add_trace(go.Scatter(
-            x=[0, line_max], 
-            y=[0, line_max],
-            mode='lines',
-            name='Perfect Fit',
-            line=dict(dash='dash', color='red')
-        ))
-
-        fig.update_layout(
-            title=f"XGBoost (Log-Target)<br>R²: {self.metrics['R2']:.3f} | MAE: {self.metrics['MAE']:.1f}",
-            xaxis_title="Actual Total Pollen",
-            yaxis_title="Predicted Total Pollen",
-            template="plotly_white"
-        )
+        ax2.plot(self.output_df['Date'], y_test, label='Actual', color='black', alpha=0.7)
+        ax2.plot(self.output_df['Date'], preds, label='Predicted', color='orange', alpha=0.7)
+        ax2.set_title("XGBoost Time Series")
+        ax2.set_xlabel("Date")
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
+        
+        plt.tight_layout()
         return fig

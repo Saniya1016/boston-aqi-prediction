@@ -55,10 +55,6 @@ def load_data():
 data = load_data()
 
 MODEL_REGISTRY = {
-    "Linear Regression AQI": {
-        "module": "models.linear_regression",
-        "class": "LinearRegressionAQI"
-    },
     "XGBoost AQI": {
         "module": "models.xgboost_aqi",
         "class": "XGBoostAQI"

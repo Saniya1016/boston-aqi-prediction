@@ -1,10 +1,10 @@
 # file: random_forest_aqi.py
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-# Reusing the structure from xgboost_aqi.py
 
 class RandomForestAQI:
     def __init__(self):
@@ -17,14 +17,12 @@ class RandomForestAQI:
         )
         self.trained = False
         self.test_data = None
-        self.predictions = None
         self.metrics = {}
 
     def short_description(self):
         return "Random Forest Regressor for AQI (n_estimators=600, max_depth=10)."
 
     def _build_features(self, df):
-        # Same feature engineering logic as XGBoostAQI
         df = df.sort_values("date").copy()
         
         df['AQI_lag_2'] = df['AQI'].shift(2)
@@ -113,41 +111,50 @@ class RandomForestAQI:
         preds = self.model.predict(X_test)
         
         self.test_data = test_df.copy()
-        self.test_data['predicted_AQI'] = preds
-        self.test_data['actual_AQI'] = y_test
+        self.test_data['AQI_Predicted'] = preds
+        self.test_data['AQI_Observed'] = y_test
         
         self.metrics['MAE'] = mean_absolute_error(y_test, preds)
         self.metrics['RMSE'] = np.sqrt(mean_squared_error(y_test, preds))
         self.metrics['R2'] = r2_score(y_test, preds)
 
-        return self.test_data[['date', 'actual_AQI', 'predicted_AQI']]
+        return self.test_data[['date', 'AQI_Observed', 'AQI_Predicted']]
 
-    def plot_results(self, data_dict, fig):
+    def plot_results(self, data_dict=None):
         if not self.trained:
-            plt.text(0.5, 0.5, "Model training failed or not run.", ha="center")
-            return
+            fig = go.Figure()
+            fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
+            return fig
 
-        ax1 = fig.add_subplot(121)
-        ax2 = fig.add_subplot(122)
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=(f"Actual vs Predicted (R²={self.metrics['R2']:.2f})", "Random Forest Time Series")
+        )
 
-        y_test = self.test_data['actual_AQI']
-        preds = self.test_data['predicted_AQI']
+        y_test = self.test_data['AQI_Observed']
+        preds = self.test_data['AQI_Predicted']
         
-        ax1.scatter(y_test, preds, alpha=0.5, color='green', s=10)
+        # 1. Scatter
+        fig.add_trace(
+            go.Scatter(x=y_test, y=preds, mode='markers', name='Predictions', marker=dict(color='orange', opacity=0.5, size=6)),
+            row=1, col=1
+        )
         min_val = min(y_test.min(), preds.min())
         max_val = max(y_test.max(), preds.max())
-        ax1.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
-        ax1.set_title(f"Actual vs Predicted (R²={self.metrics['R2']:.2f})")
-        ax1.set_xlabel("Actual AQI")
-        ax1.set_ylabel("Predicted AQI")
-        ax1.grid(True, alpha=0.3)
+        fig.add_trace(
+            go.Scatter(x=[min_val, max_val], y=[min_val, max_val], mode='lines', name='Perfect Fit', line=dict(color='red', dash='dash')),
+            row=1, col=1
+        )
 
-        ax2.plot(self.test_data['date'], y_test, label="Actual", color='gray', alpha=0.7)
-        ax2.plot(self.test_data['date'], preds, label="Predicted", color='green', alpha=0.7)
-        ax2.set_title("AQI Forecast Over Time (Test Set)")
-        ax2.set_xlabel("Date")
-        ax2.set_ylabel("AQI")
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
+        # 2. Time Series
+        fig.add_trace(
+            go.Scatter(x=self.test_data['date'], y=y_test, mode='lines', name='Actual', line=dict(color='gray', width=1)),
+            row=1, col=2
+        )
+        fig.add_trace(
+            go.Scatter(x=self.test_data['date'], y=preds, mode='lines', name='Predicted', line=dict(color='orange', width=2)),
+            row=1, col=2
+        )
         
-        plt.tight_layout()
+        fig.update_layout(template="plotly_white", showlegend=False)
+        return fig

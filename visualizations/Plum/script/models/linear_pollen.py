@@ -1,113 +1,119 @@
-# file: linear_pollen.py
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 class LinearPollen:
     def __init__(self):
         self.model = LinearRegression()
         self.scaler = StandardScaler()
-        self.trained = False
-        self.y_test = None
-        self.y_pred = None
         self.metrics = {}
+        self.output_df = None
 
     def short_description(self):
         return "Linear Regression for Pollen (Standard Scaled features)."
 
     def _engineer_features(self, data_dict):
-        # Using basic numeric features as implied by the notebook's initial simple model
         w = data_dict["weather"].copy()
         p = data_dict["pollutants"].copy()
         pol = data_dict["pollen"].copy()
 
-        w['Date'] = pd.to_datetime(w['time'])
-        p['Date'] = pd.to_datetime(p['date'])
+        # Rename and Format Dates
+        w = w.rename(columns={'time': 'Date'})
+        p = p.rename(columns={'date': 'Date'})
+        
+        if 'Date' not in pol.columns:
+            date_col = next((c for c in pol.columns if 'date' in c.lower()), None)
+            if date_col:
+                pol = pol.rename(columns={date_col: 'Date'})
+
+        w['Date'] = pd.to_datetime(w['Date'])
+        p['Date'] = pd.to_datetime(p['Date'])
         pol['Date'] = pd.to_datetime(pol['Date'])
 
-        merged = w.merge(p, on='Date', how='inner').merge(pol, on='Date', how='inner')
-        merged = merged[merged['Date'].dt.month.isin(range(3, 11))].copy()
+        # Merge
+        df = w.merge(p, on='Date', how='inner').merge(pol, on='Date', how='inner')
         
-        # Drop rows with missing values
-        merged = merged.dropna()
+        # Season Filter (March - Oct)
+        df = df[df['Date'].dt.month.isin(range(3, 11))].copy()
+        df = df.sort_values('Date').reset_index(drop=True)
         
-        return merged
+        target = "Total_Pollen"
+        exclude = ["Tree", "Grass", "Weed", "Ragweed", "Total_Pollen", "Date", "Year", "Month", "Day", "Week", "AQI_Category", "date_local"]
+        feature_cols = [c for c in df.select_dtypes(include=np.number).columns if c not in exclude]
+        
+        df = df.dropna(subset=feature_cols + [target])
+        
+        return df, feature_cols, target
 
     def predict(self, data_dict):
-        df = self._engineer_features(data_dict)
-        target = "Total_Pollen"
+        df, feature_cols, target = self._engineer_features(data_dict)
         
-        # Select numeric features excluding target and specific non-predictors
-        remove_cols = ["Date", "time", "date", "Month", "Year", "Day", "Week", 
-                       "Tree_Level", "Grass_Level", "Weed_Level", "Ragweed_Level", 
-                       "AQI_Category", "weather_code (wmo code)", "OBJECTID",
-                       "Tree", "Grass", "Weed", "Ragweed", target]
+        df['Year'] = df['Date'].dt.year
+        train_df = df[df['Year'] < 2023].copy()
+        test_df = df[df['Year'] >= 2023].copy()
         
-        feature_cols = [c for c in df.columns if c not in remove_cols and df[c].dtype in ['float64', 'int64', 'int32']]
-        
-        # Split by year (Notebook logic: < 2023 train, >= 2023 test)
-        df = df.sort_values("Date")
-        train_df = df[df['Date'].dt.year < 2023]
-        test_df = df[df['Date'].dt.year >= 2023]
-        
+        if len(train_df) == 0 or len(test_df) == 0:
+            return pd.DataFrame(columns=['Date', 'Total_Pollen', 'Predicted_Pollen'])
+
         X_train = train_df[feature_cols]
         y_train = train_df[target]
         X_test = test_df[feature_cols]
-        self.y_test = test_df[target]
-        
-        # Scale
+        y_test = test_df[target]
+
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
-        
-        self.model.fit(X_train_scaled, y_train)
-        self.trained = True
-        
-        self.y_pred = self.model.predict(X_test_scaled)
-        
-        mae = mean_absolute_error(self.y_test, self.y_pred)
-        rmse = np.sqrt(mean_squared_error(self.y_test, self.y_pred))
-        r2 = r2_score(self.y_test, self.y_pred)
-        self.metrics = {"MAE": mae, "RMSE": rmse, "R2": r2}
 
-        return pd.DataFrame({
-            "Actual Pollen": self.y_test.values,
-            "Predicted Pollen": self.y_pred
-        })
+        self.model.fit(X_train_scaled, y_train)
+        preds = self.model.predict(X_test_scaled)
+        
+        self.metrics['MAE'] = mean_absolute_error(y_test, preds)
+        self.metrics['RMSE'] = np.sqrt(mean_squared_error(y_test, preds))
+        self.metrics['R2'] = r2_score(y_test, preds)
+
+        self.output_df = test_df[['Date']].copy()
+        self.output_df['Total_Pollen'] = y_test
+        self.output_df['Predicted_Pollen'] = preds
+        
+        return self.output_df
 
     def plot_results(self, data_dict):
-        if not self.trained:
-            fig = go.Figure()
-            fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
-            return fig
+        if self.output_df is None:
+            self.predict(data_dict)
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=self.y_test,
-            y=self.y_pred,
-            mode='markers',
-            name='Test Predictions',
-            opacity=0.6,
-            marker=dict(color='blue')
-        ))
-
-        line_max = max(self.y_test.max(), self.y_pred.max())
-        fig.add_trace(go.Scatter(
-            x=[0, line_max], 
-            y=[0, line_max],
-            mode='lines',
-            name='Perfect Fit',
-            line=dict(dash='dash', color='red')
-        ))
-
-        fig.update_layout(
-            title=f"Linear Regression<br>R²: {self.metrics['R2']:.3f} | MAE: {self.metrics['MAE']:.1f}",
-            xaxis_title="Actual Total Pollen",
-            yaxis_title="Predicted Total Pollen",
-            template="plotly_white"
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=(f"Actual vs Predicted (R²={self.metrics.get('R2', 0):.2f})", "Time Series Prediction")
         )
+        
+        y_test = self.output_df['Total_Pollen']
+        preds = self.output_df['Predicted_Pollen']
+        
+        # 1. Scatter
+        fig.add_trace(
+            go.Scatter(x=y_test, y=preds, mode='markers', name='Predictions', marker=dict(color='blue', opacity=0.5)),
+            row=1, col=1
+        )
+        # Identity line
+        min_val = min(y_test.min(), preds.min())
+        max_val = max(y_test.max(), preds.max())
+        fig.add_trace(
+            go.Scatter(x=[min_val, max_val], y=[min_val, max_val], mode='lines', name='Perfect Fit', line=dict(color='red', dash='dash')),
+            row=1, col=1
+        )
+
+        # 2. Time Series
+        fig.add_trace(
+            go.Scatter(x=self.output_df['Date'], y=y_test, mode='lines', name='Actual', line=dict(color='black', width=1)),
+            row=1, col=2
+        )
+        fig.add_trace(
+            go.Scatter(x=self.output_df['Date'], y=preds, mode='lines', name='Predicted', line=dict(color='blue', width=2)),
+            row=1, col=2
+        )
+        
+        fig.update_layout(template="plotly_white", showlegend=False)
         return fig
