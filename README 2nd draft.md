@@ -313,12 +313,12 @@ PCA is used only for visualization.
 
 Each regime corresponds to distinct AQI distributions, reinforcing nonlinear environmental structure.
 
+<br></br>
+
 # Clustering Analysis: Nonlinear Environmental Structure
 
 Linear correlations underestimated the true relationships.
 K-Means clustering uncovered distinct environmental regimes.
-
-<br></br>
 
 ### Weather → Pollen Clusters
 
