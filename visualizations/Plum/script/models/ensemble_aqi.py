@@ -10,7 +10,6 @@ from sklearn.metrics import mean_absolute_error, r2_score
 
 class EnsembleAQI:
     def __init__(self):
-        # Initialize the three component models with tuned hyperparameters
         self.xgb = XGBRegressor(
             objective="reg:squarederror", random_state=42, n_jobs=-1,
             n_estimators=800, max_depth=4, learning_rate=0.03,
@@ -33,12 +32,8 @@ class EnsembleAQI:
         return "Ensemble (Average) of XGBoost, LightGBM, and Random Forest models."
 
     def _build_features(self, df):
-        """
-        Standardized feature engineering matching the single AQI models.
-        """
         df = df.sort_values("date").copy()
         
-        # --- AQI Lags & Rolling ---
         df['AQI_lag_2'] = df['AQI'].shift(2)
         df['AQI_lag_3'] = df['AQI'].shift(3)
         df['AQI_roll3'] = df['AQI'].shift(1).rolling(3).mean()
@@ -46,7 +41,6 @@ class EnsembleAQI:
         df['AQI_diff_1'] = df['AQI'].shift(1) - df['AQI'].shift(2)
         df['AQI_diff_7'] = df['AQI'].shift(1) - df['AQI'].shift(7)
         
-        # --- Pollutants ---
         pollutants = ["PM2.5", "O3", "CO", "NO2", "SO2"]
         for p in pollutants:
             if p in df.columns:
@@ -56,7 +50,6 @@ class EnsembleAQI:
                 df[f'{p}_roll3'] = df[p].shift(1).rolling(3).mean()
                 df[f'{p}_roll7'] = df[p].shift(1).rolling(7).mean()
         
-        # --- Weather ---
         weather_map = {
             "temperature_2m_mean (°C)": "temp", 
             "wind_speed_10m_max (km/h)": "wind", 
@@ -68,7 +61,6 @@ class EnsembleAQI:
                 df[f"{new}_roll3"] = df[old].shift(1).rolling(3).mean()
                 df[f"{new}_roll7"] = df[old].shift(1).rolling(7).mean()
 
-        # --- Interactions ---
         if "PM2.5_lag1" in df.columns and "wind_lag1" in df.columns: 
             df["PM25_wind"] = df["PM2.5_lag1"] * df["wind_lag1"]
         if "O3_lag1" in df.columns and "temp_lag1" in df.columns: 
@@ -76,7 +68,6 @@ class EnsembleAQI:
         if "NO2_lag1" in df.columns and "wind_lag1" in df.columns: 
             df["NO2_wind"] = df["NO2_lag1"] * df["wind_lag1"]
 
-        # --- Time Features ---
         df["month"] = df["date"].dt.month
         df["dayofyear"] = df["date"].dt.dayofyear
         df["month_sin"] = np.sin(2*np.pi*df["month"]/12)
@@ -91,22 +82,17 @@ class EnsembleAQI:
         return df.dropna()
 
     def predict(self, data_dict):
-        # 1. Merge Data
         pollutants = data_dict["pollutants"].copy()
         weather = data_dict["weather"].copy()
         pollutants['date'] = pd.to_datetime(pollutants['date'])
         
-        # Handle inconsistent weather date column name
         w_date = 'time' if 'time' in weather.columns else 'date'
         weather[w_date] = pd.to_datetime(weather[w_date])
         weather = weather.rename(columns={w_date: 'date'})
         
         df = pd.merge(pollutants, weather, on='date', how='inner')
-        
-        # 2. Engineer Features
         df = self._build_features(df)
 
-        # 3. Select Features
         exclude = [
             "date", "time", "date_local", "num_pollutants_available", "AQI", "AQI_Category", 
             "AQI_PM2.5", "AQI_O3", "AQI_CO", "AQI_NO2", "AQI_SO2", 
@@ -116,7 +102,6 @@ class EnsembleAQI:
         ]
         feature_cols = [c for c in df.columns if c not in exclude]
         
-        # 4. Chronological Split (Last 1 year as Test)
         latest = df['date'].max()
         test_start = latest - pd.DateOffset(years=1)
         
@@ -128,27 +113,24 @@ class EnsembleAQI:
         X_test = test_df[feature_cols]
         y_test = test_df["AQI"]
 
-        # 5. Train Models
         self.xgb.fit(X_train, y_train)
         self.lgbm.fit(X_train, y_train)
         self.rf.fit(X_train, y_train)
         self.trained = True
         
-        # 6. Predict and Average
         pred_xgb = self.xgb.predict(X_test)
         pred_lgbm = self.lgbm.predict(X_test)
         pred_rf = self.rf.predict(X_test)
         
         final_preds = (pred_xgb + pred_lgbm + pred_rf) / 3
         
-        # 7. Store Results
         self.test_data = test_df.copy()
-        self.test_data['actual_AQI'] = y_test
-        self.test_data['predicted_AQI'] = final_preds
+        self.test_data['AQI_Observed'] = y_test
+        self.test_data['AQI_Predicted'] = final_preds
         self.metrics['MAE'] = mean_absolute_error(y_test, final_preds)
         self.metrics['R2'] = r2_score(y_test, final_preds)
         
-        return self.test_data[['date', 'actual_AQI', 'predicted_AQI']]
+        return self.test_data[['date', 'AQI_Observed', 'AQI_Predicted']]
 
     def plot_results(self, data_dict=None):
         if not self.trained:
@@ -156,83 +138,38 @@ class EnsembleAQI:
             fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
             return fig
 
-        df = self.test_data
-
-        # Create subplot layout: 1 row, 2 columns
         fig = make_subplots(
             rows=1, cols=2,
             subplot_titles=(
-                f"Ensemble Model (MAE={self.metrics['MAE']:.2f}, R²={self.metrics['R2']:.2f})",
+                f"Ensemble Model (R²={self.metrics['R2']:.2f})",
                 "Actual vs Predicted AQI Over Time"
             )
         )
 
-        # Plot 1: Actual vs Predicted Scatter (Left)
+        y_test = self.test_data['AQI_Observed']
+        preds = self.test_data['AQI_Predicted']
+
+        # Plot 1: Actual vs Predicted
         fig.add_trace(
-            go.Scatter(
-                x=df["actual_AQI"], 
-                y=df["predicted_AQI"],
-                mode='markers',
-                name="Predictions",
-                marker=dict(color='purple', opacity=0.6, size=5)
-            ),
+            go.Scatter(x=y_test, y=preds, mode='markers', name="Predictions", marker=dict(color='purple', opacity=0.6, size=5)),
+            row=1, col=1
+        )
+        min_val = min(y_test.min(), preds.min())
+        max_val = max(y_test.max(), preds.max())
+        fig.add_trace(
+            go.Scatter(x=[min_val, max_val], y=[min_val, max_val], mode='lines', name="Perfect Fit", line=dict(dash='dash', color='red')),
             row=1, col=1
         )
 
-        # Diagonal reference line
-        min_val = min(df["actual_AQI"].min(), df["predicted_AQI"].min())
-        max_val = max(df["actual_AQI"].max(), df["predicted_AQI"].max())
+        # Plot 2: Time Series
         fig.add_trace(
-            go.Scatter(
-                x=[min_val, max_val],
-                y=[min_val, max_val],
-                mode='lines',
-                name="Perfect Fit",
-                line=dict(dash='dash', color='red')
-            ),
-            row=1, col=1
+            go.Scatter(x=self.test_data['date'], y=y_test, mode='lines', name="Actual", line=dict(width=1.5, color='gray')),
+            row=1, col=2
         )
-        fig.update_xaxes(title="Actual AQI", row=1, col=1)
-        fig.update_yaxes(title="Predicted AQI", row=1, col=1)
-
-        # Plot 2: Time Series (Right)
         fig.add_trace(
-            go.Scatter(
-                x=df["date"], 
-                y=df["actual_AQI"],
-                mode='lines',
-                name="Actual",
-                line=dict(width=1.5, color='gray')
-            ),
+            go.Scatter(x=self.test_data['date'], y=preds, mode='lines', name="Ensemble Prediction", line=dict(width=1.5, color='purple')),
             row=1, col=2
         )
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["date"], 
-                y=df["predicted_AQI"],
-                mode='lines',
-                name="Ensemble Prediction",
-                line=dict(width=1.5, color='purple')
-            ),
-            row=1, col=2
-        )
-        fig.update_xaxes(title="Date", row=1, col=2)
-        fig.update_yaxes(title="AQI", row=1, col=2)
-
-        # Layout settings
-        fig.update_layout(
-            template="plotly_white",
-            hovermode="x unified",
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            margin=dict(t=50)
-        )
-
+        fig.update_layout(template="plotly_white", showlegend=False)
         return fig
