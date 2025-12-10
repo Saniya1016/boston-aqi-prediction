@@ -229,17 +229,17 @@ Monthly time-series reveal:
 
 - Temperature strongly aligns with biological cycles
 
-<img src="Lola/Plots (Monthly)/by fours/AQI_monthly_timeseries.png" width="400"/>
+<img src="visualizations/Lola/Plots (Monthly)/by fours/AQI_monthly_timeseries.png" width="400"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Grass_monthly_timeseries.png" width="400"/>
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Grass_monthly_timeseries.png" width="400"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Ragweed_monthly_timeseries.png" width="400"/>
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Ragweed_monthly_timeseries.png" width="400"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Total_Pollen_monthly_timeseries.png" width="400"/>
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Total_Pollen_monthly_timeseries.png" width="400"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Tree_monthly_timeseries.png" width="400"/>
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Tree_monthly_timeseries.png" width="400"/>
 
-<img src="Lola\Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="400"/> 
+<img src="visualizations/Lola/Plots (Monthly)\by fours\Weed_monthly_timeseries.png" width="400"/> 
 
 # AQI Visualizations
 
