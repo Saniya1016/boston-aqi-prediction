@@ -87,10 +87,6 @@ MODEL_REGISTRY = {
         "module": "models.xgboost_pollen",
         "class": "XGBoostPollen"
     },
-    "Linear Regression Pollen": {
-        "module": "models.linear_pollen",
-        "class": "LinearPollen"
-    }
 }
 
 # Dynamically load a model class
