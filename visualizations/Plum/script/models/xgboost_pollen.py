@@ -1,132 +1,240 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from xgboost import XGBRegressor
+import xgboost as xgb
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from functools import reduce
 
 class XGBoostPollen:
     def __init__(self):
-        self.model = XGBRegressor(
-            n_estimators=1000,
-            learning_rate=0.05,
-            max_depth=6,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            n_jobs=-1,
-            random_state=42
-        )
+        self.params = {
+            'objective': 'reg:squarederror',
+            'learning_rate': 0.05,
+            'max_depth': 6,
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
+            'tree_method': 'hist',
+            'eval_metric': 'rmse',
+            'seed': 42
+        }
+        self.num_boost_round = 1200
+        self.early_stopping_rounds = 50
+        
+        self.model = None
+        self.trained = False
+        self.test_data = None
         self.metrics = {}
-        self.output_df = None
+        self.YEAR_SPLIT = 2023
+
+        # --- FIX: EXPLICIT FEATURE LIST (Pre-Normalized for XGBoost) ---
+        # XGBoost code typically normalizes spaces/parens, so we match that here.
+        self.EXPLICIT_NUMERIC_COLS = [
+            'temperature_2m_mean_°C', 'apparent_temperature_mean_°C', 
+            'precipitation_sum_mm', 'wind_gusts_10m_max_km_h', 
+            'wind_speed_10m_max_km_h', 'wind_direction_10m_dominant_°', 
+            'PM2.5', 'O3', 'CO', 'NO2', 'SO2', 
+            'AQI_PM2.5', 'AQI_O3', 'AQI_CO', 'AQI_NO2', 'AQI_SO2', 'AQI', 
+            'num_pollutants_available'
+        ]
 
     def short_description(self):
-        return "XGBoost (Rolling Means, Weighted Features, Early Stopping)."
+        return "XGBoost Regressor | Features: Weighted Rolling, Interactions (Fixed Features)"
 
-    def _engineer_features(self, data_dict):
-        w = data_dict["weather"].copy()
-        p = data_dict["pollutants"].copy()
-        pol = data_dict["pollen"].copy()
-        
-        w = w.rename(columns={'time': 'Date'})
-        p = p.rename(columns={'date': 'Date'})
-        if 'Date' not in pol.columns:
-            date_col = next((c for c in pol.columns if 'date' in c.lower()), None)
-            if date_col:
-                pol = pol.rename(columns={date_col: 'Date'})
+    def _merge_data(self, data_dict):
+        dfs = []
+        if "pollen" in data_dict:
+            df_p = data_dict["pollen"].copy()
+            df_p = df_p.rename(columns={"Date": "date", "time": "date"})
+            dfs.append(df_p)
+        if "weather" in data_dict:
+            df_w = data_dict["weather"].copy()
+            df_w = df_w.rename(columns={"time": "date"})
+            dfs.append(df_w)
+        if "pollutants" in data_dict:
+            df_pol = data_dict["pollutants"].copy()
+            df_pol = df_pol.rename(columns={"Date": "date", "time": "date"})
+            dfs.append(df_pol)
 
-        w['Date'] = pd.to_datetime(w['Date'])
-        p['Date'] = pd.to_datetime(p['Date'])
-        pol['Date'] = pd.to_datetime(pol['Date'])
+        if not dfs:
+            raise RuntimeError("No data found in data_dict")
+
+        df_merged = reduce(lambda left, right: pd.merge(left, right, on='date', how='inner'), dfs)
+        return df_merged
+
+    def _normalize_columns(self, df):
+        df.columns = (
+            df.columns
+            .str.replace(" ", "_", regex=False)
+            .str.replace("(", "", regex=False)
+            .str.replace(")", "", regex=False)
+            .str.replace("/", "_", regex=False)
+        )
+        if "date" in df.columns:
+            df = df.rename(columns={"date": "Date"})
+        return df
+
+    def _build_features(self, df):
+        df = df.sort_values("Date").reset_index(drop=True)
+        df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
+        df["Year"] = df["Date"].dt.year
         
-        df = w.merge(p, on='Date', how='inner').merge(pol, on='Date', how='inner')
-        df = df.sort_values('Date').reset_index(drop=True)
+        # 1. USE EXPLICIT NUMERIC COLS
+        numeric_cols = [c for c in self.EXPLICIT_NUMERIC_COLS if c in df.columns]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        # Target 
         target = "Total_Pollen"
         
-        df['lag1'] = df[target].shift(1)
-        df['roll3'] = df[target].shift(1).rolling(3).mean()
-        df['roll7'] = df[target].shift(1).rolling(7).mean()
-        df['roll30'] = df[target].shift(1).rolling(30).mean()
-        
-        df['day_of_year'] = df['Date'].dt.dayofyear
-        df['sin_day'] = np.sin(2 * np.pi * df['day_of_year'] / 365)
-        
-        weights = np.array([0.1, 0.3, 0.6])
-        exclude_cols = ["Tree", "Grass", "Weed", "Ragweed", target, "Date", "Year", "Month", "Day", "Week", "AQI_Category", "date_local"]
-        numeric_cols = [c for c in df.select_dtypes(include=np.number).columns if c not in exclude_cols]
-        
-        for col in numeric_cols:
-            s0 = df[col].shift(2)
-            s1 = df[col].shift(1)
-            s2 = df[col]
-            df[f'{col}_weighted3'] = (weights[0]*s0 + weights[1]*s1 + weights[2]*s2)
+        df["day_of_year"] = df["Date"].dt.dayofyear
+        df["lag1"] = df[target].shift(1).ffill()
+        df["lag2"] = df[target].shift(2).ffill()
+        df["lag3"] = df[target].shift(3).ffill()
 
-        df = df[df['Date'].dt.month.isin(range(3, 11))].copy()
-        return df, target
+        df["pollen_3day"] = df[target].shift(1).rolling(3).mean().ffill()
+        df["pollen_7day"] = df[target].shift(1).rolling(7).mean().ffill()
+
+        df["is_spike"] = (df["lag1"] > df["pollen_3day"]).astype(int)
+        df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
+        df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
+
+        # Weighted Rolling
+        weights = np.array([0.1, 0.3, 0.6])
+        rolling_cols = [
+            'temperature_2m_mean_°C', 'apparent_temperature_mean_°C',
+            'PM2.5', 'O3', 'CO', 'NO2', 'SO2',
+            'AQI_PM2.5', 'AQI_O3', 'AQI_CO', 'AQI_NO2', 'AQI_SO2', 'AQI'
+        ]
+        
+        for col in rolling_cols:
+            if col in df.columns:
+                df[f'{col}_weighted3'] = (
+                    df[col].shift(3).ffill() * weights[0] +
+                    df[col].shift(2).ffill() * weights[1] +
+                    df[col].shift(1).ffill() * weights[2]
+                )
+                for lag in range(1, 4):
+                    df[f"{col}_lag{lag}"] = df[col].shift(lag).ffill()
+
+        # Interactions
+        interaction_pairs = [
+            ('temperature_2m_mean_°C', 'AQI'),
+            ('apparent_temperature_mean_°C', 'PM2.5'),
+            ('wind_speed_10m_max_km_h', 'O3'),
+        ]
+        for col1, col2 in interaction_pairs:
+            if col1 in df.columns and col2 in df.columns:
+                df[f'{col1}_x_{col2}'] = df[col1] * df[col2]
+
+        # Drop NaNs
+        required_lags = ["lag1", "lag2", "lag3", "pollen_3day", "pollen_7day"]
+        df = df.dropna(subset=required_lags).reset_index(drop=True)
+
+        # Define Features
+        base_features = numeric_cols 
+        extra_features = [
+            "lag1", "lag2", "lag3",
+            "pollen_3day", "pollen_7day",
+            "is_spike", "sin_day", "cos_day"
+        ]
+        weighted_features = [c for c in df.columns if "_weighted3" in c]
+        lag_features = [c for c in df.columns if "_lag" in c and c not in ["lag1", "lag2", "lag3"]]
+        inter_features = [c for c in df.columns if "_x_" in c]
+
+        features = base_features + extra_features + weighted_features + lag_features + inter_features
+        features = [f for f in features if f in df.columns]
+
+        return df, features, target
 
     def predict(self, data_dict):
-        df, target = self._engineer_features(data_dict)
+        # 1. Merge & Normalize
+        df_merged = self._merge_data(data_dict)
+        df_norm = self._normalize_columns(df_merged)
         
-        df['Year'] = df['Date'].dt.year
-        train_df = df[df['Year'] < 2023].copy()
-        test_df = df[df['Year'] >= 2023].copy()
-        
-        thresh = train_df[target].mean() + train_df[target].std()
-        train_df['is_spike'] = (train_df[target].shift(1) > thresh).astype(int)
-        test_df['is_spike'] = (test_df[target].shift(1) > thresh).astype(int)
-        
-        train_df = train_df.dropna().reset_index(drop=True)
-        test_df = test_df.dropna().reset_index(drop=True)
-        
-        exclude_final = [target, "Date", "Year", "Month", "Day", "Week", "AQI_Category", "date_local", "Tree", "Grass", "Weed", "Ragweed"]
-        features = [c for c in train_df.columns if c not in exclude_final]
-        
-        X_train = train_df[features]
-        y_train = train_df[target]
-        X_test = test_df[features]
-        y_test = test_df[target]
-        
-        self.model.fit(
-            X_train, y_train,
-            eval_set=[(X_test, y_test)],
-            verbose=False
+        # 2. Build Features
+        df_processed, features, target = self._build_features(df_norm)
+
+        # 3. Split
+        train_idx = df_processed['Year'] < self.YEAR_SPLIT
+        test_idx = df_processed['Year'] == self.YEAR_SPLIT
+
+        X_train = df_processed.loc[train_idx, features]
+        y_train = df_processed.loc[train_idx, target]
+        X_test = df_processed.loc[test_idx, features]
+        y_test = df_processed.loc[test_idx, target]
+        test_dates = df_processed.loc[test_idx, "Date"]
+
+        if len(X_test) == 0:
+            raise RuntimeError(f"No test data found for Year {self.YEAR_SPLIT}")
+
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        dtest = xgb.DMatrix(X_test, label=y_test)
+
+        evals = [(dtrain, 'train'), (dtest, 'eval')]
+        self.model = xgb.train(
+            params=self.params,
+            dtrain=dtrain,
+            num_boost_round=self.num_boost_round,
+            evals=evals,
+            early_stopping_rounds=self.early_stopping_rounds,
+            verbose_eval=False
         )
-        
-        preds = self.model.predict(X_test)
-        
-        self.metrics['MAE'] = mean_absolute_error(y_test, preds)
-        self.metrics['RMSE'] = np.sqrt(mean_squared_error(y_test, preds))
-        self.metrics['R2'] = r2_score(y_test, preds)
-        
-        self.output_df = test_df[['Date']].copy()
-        self.output_df['Actual_Pollen'] = y_test
-        self.output_df['Predicted_Pollen'] = preds
-        
-        return self.output_df
+        self.trained = True
 
-    def plot_results(self, data_dict):
-        if self.output_df is None:
-            self.predict(data_dict)
+        y_pred = self.model.predict(dtest)
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-        
-        y_test = self.output_df['Actual_Pollen']
-        preds = self.output_df['Predicted_Pollen']
-        
-        ax1.scatter(y_test, preds, alpha=0.5, color='orange')
+        self.metrics = {
+            "MAE": mean_absolute_error(y_test, y_pred),
+            "RMSE": np.sqrt(mean_squared_error(y_test, y_pred)),
+            "R2": r2_score(y_test, y_pred)
+        }
+
+        results = pd.DataFrame({
+            "date": test_dates.values,
+            "Observed": y_test.values,
+            "Forecast": y_pred
+        })
+        self.test_data = results
+        return results
+
+    def plot_results(self, data=None):
+        if not self.trained or self.test_data is None:
+            fig = go.Figure()
+            fig.add_annotation(text="Model not trained.", x=0.5, y=0.5, showarrow=False)
+            return fig
+
+        y_test = self.test_data['Observed']
+        preds = self.test_data['Forecast']
+        dates = self.test_data['date']
+
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=(f"Actual vs Predicted (R²={self.metrics['R2']:.2f})", "Time Series Forecast"),
+            vertical_spacing=0.15
+        )
+
+        fig.add_trace(
+            go.Scatter(x=y_test, y=preds, mode='markers', name='Predictions', 
+                       marker=dict(color='blue', opacity=0.5, size=6)),
+            row=1, col=1
+        )
         min_val = min(y_test.min(), preds.min())
         max_val = max(y_test.max(), preds.max())
-        ax1.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
-        ax1.set_title(f"Actual vs Predicted (R²={self.metrics.get('R2', 0):.2f})")
-        ax1.set_xlabel("Actual Pollen")
-        ax1.set_ylabel("Predicted Pollen")
-        ax1.grid(True, alpha=0.3)
+        fig.add_trace(
+            go.Scatter(x=[min_val, max_val], y=[min_val, max_val], mode='lines', 
+                       name='Perfect Fit', line=dict(color='red', dash='dash')),
+            row=1, col=1
+        )
 
-        ax2.plot(self.output_df['Date'], y_test, label='Actual', color='black', alpha=0.7)
-        ax2.plot(self.output_df['Date'], preds, label='Predicted', color='orange', alpha=0.7)
-        ax2.set_title("XGBoost Time Series")
-        ax2.set_xlabel("Date")
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
-        plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
-        
-        plt.tight_layout()
+        fig.add_trace(
+            go.Scatter(x=dates, y=y_test, mode='lines', name='Actual', line=dict(color='gray', width=1)),
+            row=2, col=1
+        )
+        fig.add_trace(
+            go.Scatter(x=dates, y=preds, mode='lines', name='Predicted', line=dict(color='green', width=2)),
+            row=2, col=1
+        )
+
+        fig.update_layout(template="plotly_white", showlegend=True, height=900)
         return fig

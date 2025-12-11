@@ -75,9 +75,13 @@ MODEL_REGISTRY = {
         "module": "models.random_forest_pollen",
         "class": "RandomForestPollen"
     },
-    "LightGBM Pollen": {
-        "module": "models.lightgbm_pollen",
+    "LightGBM Classification Pollen": {
+        "module": "models.lightgbm_class_pollen",
         "class": "LightGBMPollen"
+    },
+    "LightGBM Log Pollen": {
+        "module": "models.lightgbm_log_pollen",
+        "class": "LightGBMLogPollen"
     },
     "XGBoost Pollen": {
         "module": "models.xgboost_pollen",
@@ -151,14 +155,12 @@ if page == "Models":
     date_col = next((c for c in cols if 'date' in c.lower() or 'time' in c.lower()), None)
     actual_col = next((c for c in cols if 'actual' in c.lower() or 'true' in c.lower()), None)
     pred_col = next((c for c in cols if 'pred' in c.lower()), None)
-
     if date_col and actual_col and pred_col:
         
         tab1, tab2 = st.tabs(["Time Series", "Actual vs Predicted"])
 
         with tab1:
             st.subheader("Time Series Analysis")
-            # Interactive Time Series Plot using Plotly
             fig_ts = go.Figure()
             fig_ts.add_trace(go.Scatter(x=predictions[date_col], y=predictions[actual_col],
                                 mode='lines', name='Actual', line=dict(color='gray', width=1)))
@@ -172,17 +174,16 @@ if page == "Models":
                 hovermode="x unified",
                 template="plotly_white"
             )
-            st.plotly_chart(fig_ts, width='stretch')
+            # FIX: width='stretch' is deprecated
+            st.plotly_chart(fig_ts, use_container_width=True)
 
         with tab2:
             st.subheader("Scatter Analysis")
-            # Interactive Scatter Plot
             fig_sc = px.scatter(predictions, x=actual_col, y=pred_col, 
                                 title="Actual vs Predicted",
                                 labels={actual_col: "Actual Value", pred_col: "Predicted Value"},
                                 opacity=0.6)
             
-            # Add a perfect prediction line (y=x)
             min_val = min(predictions[actual_col].min(), predictions[pred_col].min())
             max_val = max(predictions[actual_col].max(), predictions[pred_col].max())
             
@@ -191,12 +192,20 @@ if page == "Models":
                 x0=min_val, y0=min_val, x1=max_val, y1=max_val,
                 line=dict(color="red", dash="dash"),
             )
-            st.plotly_chart(fig_sc, width='stretch')
+            # FIX: width='stretch' is deprecated
+            st.plotly_chart(fig_sc, use_container_width=True)
 
     else:
-        # Fallback to model's internal matplotlib plot if columns aren't standard
-        fig = model_instance.plot_results(data)
-        st.plotly_chart(fig, width='stretch')
+        # Fallback to model's internal plotter (Used by LightGBM/Linear Pollen)
+        # We don't need to pass 'data' if the model stored its own predictions
+        try:
+            fig = model_instance.plot_results() 
+        except TypeError:
+            # Fallback for older models that might require the data argument
+            fig = model_instance.plot_results(data)
+            
+        # FIX: width='stretch' is deprecated
+        st.plotly_chart(fig, use_container_width=True)
 
     # Predictions Data Section
     st.header("📈 Prediction Data")
