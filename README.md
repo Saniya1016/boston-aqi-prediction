@@ -26,8 +26,6 @@ https://youtu.be/GTi8yNdaAHU
 **Why Boston?:**  
     We made the strategic decision to focus exclusively on the Boston area. While this limited our total data volume, it allowed us to avoid location-specific confounding variables that would arise from combining data across different climate zones or regulatory environments, ensuring our model learned local signals rather than geographic noise.
 
-<br></br>
-
 # 🚀 Build & Run the Project (via Makefile)
 
 This project is fully reproducible using the provided **Makefile**.
@@ -37,7 +35,6 @@ It installs all dependencies, downloads the datasets, executes the notebooks, an
 
 * Python 3.8+
 * curl (for dataset download)
-
 ---
 
 ## 🔧 1. Clone the repo
@@ -47,77 +44,13 @@ git clone https://github.com/Saniya1016/boston-aqi-prediction.git
 cd boston-aqi-prediction
 ```
 
----
-
-## ⚙️ 2. Build and install dependencies
-
-```bash
-make install
-```
-
-This will:
-
-* create a virtual environment (`venv`)
-* install all requirements from `requirements.txt`
-
----
-
-## 📥 3. Download the datasets (from HuggingFace)
-
-```bash
-make download-data
-```
-
-This will automatically create a `./Data/` folder and download:
-
-* pollutant data
-* weather data
-* pollen data
-
----
-
-## 🔁 4. Reproduce the modeling results (notebooks)
-
-```bash
-make run-aqi-nb
-make run-pollen-nb
-```
-
-Each will:
-
-* execute the Jupyter notebook
-* write output back into the notebook file
-
----
-
-## 📊 5. Run everything (recommended)
-
+Then, simply run the command:
 ```bash
 make run
 ```
 
-This will:
-
-* download data (if missing)
-* run both notebooks
-* start the Streamlit dashboard
-
----
-
-## 🖥️ 6. Launch the Streamlit App (only)
-
-```bash
-make run-streamlit
-```
-
-Then open the app:
-
-```
-http://localhost:8501
-```
----
-
-<br></br>
+this will run both ipynb files under Models/aqi_model and Models/pollen_models,
+as well as run a streamlit.py file, which are visualizations of our models' results
 
 ## Datasets
 
