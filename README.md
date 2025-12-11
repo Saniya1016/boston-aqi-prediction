@@ -668,9 +668,11 @@ Accurately distinguishes spike vs. non-spike conditions.
 
 | **Model**    | **MAE**  | **RMSE**| **R²**   | **Strength**                  |
 | ------------ | -------- | ------- | -------- | ------------------------------ |
-| **LightGBM** | **84.3** | 238     | **0.36** | Best overall generalization    |
+| **LightGBM** | 84.3 | 238     | **0.36** | Approaching best overall generalization    |
+| **LightGBM with Log ** | **83.9** | 224.1     | **0.36** | Best overall generalization    |
 | Spike Model  | 86       | 233     | 0.38     | Best conceptual fit for spikes |
 | XGBoost      | 86       | **210** | 0.30     | Strong mid-range performance   |
+
 
 - **No model perfectly captures extreme spikes**, which align with biological release triggers not accounted for in weather data.
 
